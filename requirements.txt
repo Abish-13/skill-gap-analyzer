@@ -1,4 +1,7 @@
 streamlit
 pdfplumber
+plotly
+pandas
+numpy
+scikit-learn
 reportlab
-matplotlib
