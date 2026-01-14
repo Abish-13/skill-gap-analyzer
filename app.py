@@ -3,6 +3,7 @@ import pdfplumber
 from docx import Document
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
+from reportlab.lib.units import inch
 import tempfile, re
 
 # ---------------- CONFIG ----------------
@@ -32,7 +33,6 @@ body { background:#f8fafc; }
     background:linear-gradient(135deg,#f59e0b,#f97316);
 }
 h1,h2,h3 { color:#0f172a; }
-.small { color:#475569; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -71,15 +71,13 @@ def job_fit_scores(found):
 
 def generate_beautiful_resume_docx(name, role, skills):
     doc = Document()
-
     doc.add_heading(name, 0)
     doc.add_paragraph(f"Aspiring {role} | Entry-Level Candidate")
 
     doc.add_heading("Professional Summary", level=1)
     doc.add_paragraph(
         f"Motivated and detail-oriented student aspiring {role} with hands-on experience in "
-        f"{', '.join(skills)}. Passionate about building real-world solutions, learning continuously, "
-        f"and contributing responsibly in professional environments."
+        f"{', '.join(skills)}. Passionate about building real-world solutions and learning continuously."
     )
 
     doc.add_heading("Core Skills", level=1)
@@ -87,37 +85,82 @@ def generate_beautiful_resume_docx(name, role, skills):
 
     doc.add_heading("Projects & Practical Experience", level=1)
     doc.add_paragraph(
-        "• Academic and personal projects demonstrating practical use of technologies\n"
-        "• Experience applying concepts through hands-on problem solving\n"
-        "• Familiarity with collaborative coding practices"
+        "• Academic and personal projects demonstrating applied knowledge\n"
+        "• Experience with collaborative coding and structured problem-solving"
     )
 
     doc.add_heading("Learning & Growth", level=1)
     doc.add_paragraph(
-        "Actively strengthening advanced concepts, production readiness, and industry best practices."
+        "Actively strengthening advanced concepts, deployment practices, and industry standards."
     )
-
     return doc
 
-def generate_pdf_resume(name, role, skills):
+# 🔥 BEAUTIFUL PDF RESUME (UPGRADED)
+def generate_beautiful_pdf_resume(name, role, skills):
     temp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     c = canvas.Canvas(temp.name, pagesize=A4)
 
-    c.setFont("Helvetica-Bold", 20)
-    c.drawString(50, 800, name)
+    width, height = A4
+    x_margin = 1 * inch
+    y = height - 1 * inch
+
+    # Header
+    c.setFont("Helvetica-Bold", 22)
+    c.drawString(x_margin, y, name)
+    y -= 28
 
     c.setFont("Helvetica", 12)
-    c.drawString(50, 770, f"Aspiring {role}")
+    c.drawString(x_margin, y, f"Aspiring {role} | Entry-Level Candidate")
+    y -= 20
 
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(50, 730, "Professional Summary")
-    c.setFont("Helvetica", 11)
-    c.drawString(50, 710, f"Student with experience in {', '.join(skills)} seeking entry-level opportunities.")
+    c.line(x_margin, y, width - x_margin, y)
+    y -= 25
 
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(50, 670, "Skills")
-    c.setFont("Helvetica", 11)
-    c.drawString(50, 650, ", ".join(skills))
+    # Section helper
+    def section(title, content):
+        nonlocal y
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(x_margin, y, title)
+        y -= 18
+        c.setFont("Helvetica", 11)
+        for line in content:
+            c.drawString(x_margin, y, line)
+            y -= 15
+        y -= 10
+
+    # Professional Summary
+    section(
+        "Professional Summary",
+        [
+            f"Motivated student aspiring {role} with hands-on experience in",
+            f"{', '.join(skills)}. Passionate about learning, problem-solving,",
+            "and contributing to real-world software projects."
+        ]
+    )
+
+    # Skills
+    section(
+        "Core Skills",
+        [", ".join(skills)]
+    )
+
+    # Projects
+    section(
+        "Projects & Practical Experience",
+        [
+            "• Academic and self-driven projects applying core technologies",
+            "• Exposure to structured development and collaboration workflows"
+        ]
+    )
+
+    # Learning
+    section(
+        "Learning & Growth",
+        [
+            "Actively strengthening production readiness, best practices,",
+            "and role-specific technical depth."
+        ]
+    )
 
     c.save()
     return temp.name
@@ -145,17 +188,13 @@ if resume and name and role_skills:
     missing = list(set(role_skills) - set(found))
 
     ats = int((len(found) / len(role_skills)) * 100)
-
     st.subheader("🎯 ATS Readiness")
     st.success(f"{ats}% match for {role}")
 
-    # -------- BEST FIT ROLES --------
-    st.subheader("🏆 Job Roles That Fit You Best")
-    fits = job_fit_scores(found)
-    for r, s in fits[:3]:
+    st.subheader("🏆 Best-Fit Job Roles")
+    for r, s in job_fit_scores(found)[:3]:
         st.markdown(f"**{r}** — {s}% match")
 
-    # -------- SKILLS --------
     st.subheader("🧩 Skill Match & Gaps")
     c1, c2 = st.columns(2)
     with c1:
@@ -167,53 +206,15 @@ if resume and name and role_skills:
         for s in missing:
             st.markdown(f"<span class='badge missing'>{s}</span>", unsafe_allow_html=True)
 
-    # -------- LEARNING --------
-    st.subheader("📚 Learning Roadmap")
-    for s in missing:
-        st.markdown(f"**{s.upper()}** → {COURSES.get(s,'Industry resources')}")
-
-    # -------- INTERVIEW --------
-    st.subheader("🎤 Interview Talking Points")
-    for s in found:
-        st.markdown(f"• I have practical experience with **{s}**, aligned with {role} expectations.")
-
-    # -------- RECRUITER VIEW --------
-    st.subheader("👀 Recruiter View")
-    st.info(f"Strong foundation for {role}. Honest profile with clear growth trajectory.")
-
-    # -------- LINKEDIN --------
-    st.subheader("💼 LinkedIn About")
-    st.code(
-        f"Aspiring {role} with hands-on experience in {', '.join(found)}. "
-        f"Focused on building real-world skills and growing professionally."
-    )
-
-    # -------- RESUME DOWNLOAD --------
-    st.subheader("📄 Beautiful Resume")
+    st.subheader("📄 Beautiful Resume Downloads")
     doc = generate_beautiful_resume_docx(name, role, found)
     doc_path = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
     doc.save(doc_path.name)
 
-    pdf_path = generate_pdf_resume(name, role, found)
+    pdf_path = generate_beautiful_pdf_resume(name, role, found)
 
-    c1, c2 = st.columns(2)
-    with c1:
+    d1, d2 = st.columns(2)
+    with d1:
         st.download_button("⬇ Resume (DOCX)", open(doc_path.name, "rb"), file_name="resume.docx")
-    with c2:
+    with d2:
         st.download_button("⬇ Resume (PDF)", open(pdf_path, "rb"), file_name="resume.pdf")
-
-    # -------- COVER LETTER --------
-    st.subheader("✉ Premium Cover Letter")
-    st.text_area(
-        "",
-        f"""Dear Hiring Manager,
-
-I am excited to apply for the {role} position. My experience in {', '.join(found)} has given me a strong foundation, and I am actively strengthening additional skills required for professional excellence.
-
-I bring curiosity, honesty, and a strong willingness to learn. I would love the opportunity to grow and contribute meaningfully within your team.
-
-Sincerely,
-{name}
-""",
-        height=260
-    )
