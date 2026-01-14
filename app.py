@@ -6,7 +6,7 @@ from reportlab.pdfgen import canvas
 import tempfile
 import re
 
-# ---------------- PAGE CONFIG ----------------
+# ---------------- CONFIG ----------------
 st.set_page_config(page_title="CareerCraft AI", page_icon="✨", layout="wide")
 
 # ---------------- STYLES ----------------
@@ -32,7 +32,6 @@ body { background:#f8fafc; }
 .missing {
     background:linear-gradient(135deg,#f59e0b,#f97316);
 }
-.small { color:#475569; font-size:14px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -62,30 +61,31 @@ def extract_text(file):
 def extract_skills(text, skills):
     return [s for s in skills if re.search(rf"\b{s}\b", text)]
 
-def generate_resume_docx(name, role, found_skills):
+def generate_resume_docx(name, role, skills):
     doc = Document()
     doc.add_heading(name, level=1)
     doc.add_paragraph(f"Aspiring {role}")
-    
+
     doc.add_heading("Professional Summary", level=2)
     doc.add_paragraph(
-        f"Motivated student with hands-on exposure to {', '.join(found_skills)}. "
-        f"Actively building role-aligned skills to contribute effectively in entry-level {role} positions."
+        f"Motivated student with hands-on exposure to {', '.join(skills)} "
+        f"and a strong interest in growing as a {role}."
     )
 
     doc.add_heading("Core Skills", level=2)
-    doc.add_paragraph(", ".join(found_skills))
+    doc.add_paragraph(", ".join(skills))
 
     doc.add_heading("Projects & Experience", level=2)
     doc.add_paragraph(
-        "• Academic and self-driven projects focused on practical application of core technologies.\n"
-        "• Experience collaborating with code repositories and structured problem-solving."
+        "• Academic and personal projects demonstrating practical application\n"
+        "• Experience with collaborative tools and structured problem-solving"
     )
 
-    doc.add_heading("Learning & Growth", level=2)
+    doc.add_heading("Learning Focus", level=2)
     doc.add_paragraph(
-        "Currently strengthening advanced concepts and production-readiness for professional roles."
+        "Actively strengthening role-specific and production-ready skills."
     )
+
     return doc
 
 def generate_pdf_resume(name, role, skills):
@@ -97,7 +97,7 @@ def generate_pdf_resume(name, role, skills):
     c.drawString(50, 770, f"Aspiring {role}")
     c.drawString(50, 730, "Skills:")
     c.drawString(50, 710, ", ".join(skills))
-    c.drawString(50, 680, "Focused on building role-aligned, real-world capabilities.")
+    c.drawString(50, 680, "Focused on building industry-ready capabilities.")
     c.save()
     return temp.name
 
@@ -112,10 +112,9 @@ mode = st.radio("Job Input Mode", ["Preset Role", "Custom JD"])
 if mode == "Preset Role":
     role = st.selectbox("Select Role", list(ROLE_SKILLS.keys()))
     role_skills = ROLE_SKILLS[role]
-    jd_text = f"{role} position requiring skills in {', '.join(role_skills)}"
 else:
     role = "Target Role"
-    jd_text = st.text_area("Paste Job Description (used for tailoring)")
+    jd_text = st.text_area("Paste Job Description")
     role_skills = list(set(re.findall(r"[a-zA-Z]+", jd_text.lower())))
 
 name = st.text_input("Your Full Name")
@@ -125,69 +124,50 @@ if resume and name and role_skills:
     found = extract_skills(resume_text, role_skills)
     missing = list(set(role_skills) - set(found))
 
-    # ---------------- CAREER STAGE ----------------
-    st.subheader("🎯 Career Stage")
-    stage = "Foundation Stage" if len(found) < len(role_skills) / 2 else "Growth Stage"
-    st.success(f"{stage} — You are progressing toward {role} readiness.")
+    # ---------------- ATS SCORE ----------------
+    ats_score = int((len(found) / len(role_skills)) * 100)
 
-    # ---------------- SKILL MATCH TABLE ----------------
+    st.subheader("🎯 ATS Readiness Score")
+    if ats_score < 40:
+        st.warning(f"{ats_score}% — Early stage (Best for internships & learning roles)")
+    elif ats_score < 70:
+        st.info(f"{ats_score}% — Interview-ready for entry-level roles")
+    else:
+        st.success(f"{ats_score}% — Strong ATS match for this role")
+
+    # ---------------- SKILLS ----------------
     st.subheader("🧩 Skill Matching & Growth Areas")
-    col1, col2 = st.columns(2)
+    c1, c2 = st.columns(2)
 
-    with col1:
-        st.markdown("<div class='card'><h4>💚 Skills Aligned with the Role</h4></div>", unsafe_allow_html=True)
+    with c1:
+        st.markdown("<div class='card'><h4>💚 Skills You Have</h4></div>", unsafe_allow_html=True)
         for s in found:
             st.markdown(f"<span class='badge'>{s}</span>", unsafe_allow_html=True)
 
-    with col2:
-        st.markdown("<div class='card'><h4>🌱 Skills to Strengthen Next</h4></div>", unsafe_allow_html=True)
+    with c2:
+        st.markdown("<div class='card'><h4>🌱 Skills to Learn</h4></div>", unsafe_allow_html=True)
         for s in missing:
             st.markdown(f"<span class='badge missing'>{s}</span>", unsafe_allow_html=True)
 
-    # ---------------- APPLY-NOW ROLES ----------------
-    st.subheader("🚀 Roles You Can Apply For Now")
-    st.info(f"Based on your profile, you are suitable for **{role} Intern**, **Trainee**, and **Junior-level roles**.")
-
-    # ---------------- LEARNING PLAN ----------------
-    st.subheader("📚 Targeted Learning Roadmap")
+    # ---------------- LEARNING ----------------
+    st.subheader("📚 Learning Roadmap")
     for s in missing:
-        st.markdown(f"**{s.upper()}** → {COURSES.get(s, 'Industry-standard learning resources')}")
-
-    # ---------------- INTERVIEW TALKING POINTS ----------------
-    st.subheader("🎤 Interview Talking Points")
-    for s in found:
-        st.markdown(
-            f"• My experience with **{s}** aligns with the expectations of a {role}, "
-            f"and I’ve applied it in practical projects."
-        )
-
-    # ---------------- RECRUITER VIEW ----------------
-    st.subheader("👀 Recruiter View")
-    st.success(
-        f"Candidate shows a solid foundation relevant to {role}. "
-        f"Profile demonstrates honesty, learning momentum, and internship readiness."
-    )
-
-    # ---------------- LINKEDIN ABOUT ----------------
-    st.subheader("💼 LinkedIn About (Copy-Paste)")
-    st.code(
-        f"Aspiring {role} with hands-on experience in {', '.join(found)}. "
-        f"Currently strengthening role-specific skills and seeking opportunities to grow in real-world environments."
-    )
+        st.markdown(f"**{s.upper()}** → {COURSES.get(s, 'Recommended industry resources')}")
 
     # ---------------- RESUME DOWNLOAD ----------------
     st.subheader("📄 Generated Resume")
+
     doc = generate_resume_docx(name, role, found)
-    doc_file = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
-    doc.save(doc_file.name)
+    doc_path = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
+    doc.save(doc_path.name)
 
-    pdf_file = generate_pdf_resume(name, role, found)
+    pdf_path = generate_pdf_resume(name, role, found)
 
-    c1, c2 = st.columns(2)
-    with c1:
-        st.download_button("⬇ Download Resume (DOCX)", open(doc_file.name, "rb"), file_name="resume.docx")
-    with c2:
-        st.download_button("⬇ Download Resume (PDF)", open(pdf_file.name, "rb"), file_name="resume.pdf")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.download_button("⬇ Download Resume (DOCX)", open(doc_path.name, "rb"), file_name="resume.docx")
+    with col2:
+        st.download_button("⬇ Download Resume (PDF)", open(pdf_path, "rb"), file_name="resume.pdf")
 
     # ---------------- COVER LETTER ----------------
     st.subheader("✉ Premium Cover Letter")
@@ -195,11 +175,9 @@ if resume and name and role_skills:
         "",
         f"""Dear Hiring Manager,
 
-I am writing to express my interest in the {role} position. After reviewing the role requirements, I found a strong alignment with my experience in {', '.join(found)}.
+I am applying for the {role} position. My experience with {', '.join(found)} aligns well with the role’s expectations, and I am actively strengthening additional skills required for professional excellence.
 
-I have actively applied these skills in academic and self-driven projects, and I am currently strengthening additional competencies required for professional excellence in this role. I value learning, adaptability, and ethical growth, and I am eager to contribute while continuing to improve.
-
-Thank you for considering my application.
+I bring a strong learning mindset, honesty about my growth stage, and enthusiasm to contribute meaningfully.
 
 Sincerely,
 {name}
