@@ -28,7 +28,7 @@ box-shadow:0 18px 40px rgba(0,0,0,0.18);
 margin-bottom:1.5rem;
 }
 .metric{
-font-size:2.3rem;
+font-size:2.2rem;
 font-weight:800;
 color:#2563eb;
 }
@@ -41,6 +41,10 @@ background:#e0f2fe;
 color:#0369a1;
 font-weight:600;
 margin:6px 6px 0 0;
+}
+.small{
+font-size:0.95rem;
+color:#475569;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -66,17 +70,17 @@ COURSES = {
 
 # ---------------- HELPERS ----------------
 def extract_text(pdf):
-    text=""
+    text = ""
     with pdfplumber.open(pdf) as p:
         for page in p.pages:
-            text+=page.extract_text() or ""
+            text += page.extract_text() or ""
     return text.lower()
 
 def extract_skills(text):
     return sorted({s for s in SKILLS if s in text})
 
-def similarity(a,b):
-    vec=CountVectorizer().fit_transform([a,b])
+def similarity(a, b):
+    vec = CountVectorizer().fit_transform([a, b])
     return cosine_similarity(vec)[0][1]
 
 # ---------------- RESUME DATA ----------------
@@ -85,20 +89,20 @@ def resume_data(name, role, skills, company):
         "name": name,
         "role": role,
         "summary": (
-            f"A motivated {role} aspirant with practical exposure to "
-            f"{', '.join(skills[:4])}. Interested in contributing to "
-            f"{company}'s engineering goals while continuously improving "
-            f"real-world development skills."
+            f"{role} aspirant with hands-on exposure to "
+            f"{', '.join(skills[:4])}. Actively building industry-relevant "
+            f"skills and interested in contributing to {company}'s "
+            f"engineering team while learning from real-world systems."
         ),
         "skills": skills,
         "projects": [
-            f"Built backend features using {skills[0]} with focus on clean APIs and logic.",
+            f"Implemented backend logic using {skills[0]} with clean API design.",
             "Used Git for version control and collaborative development.",
-            "Improved code quality through refactoring and structured problem-solving."
+            "Focused on writing readable, maintainable, and testable code."
         ],
         "portfolio": [
-            "GitHub Projects: https://github.com/your-username",
-            "Live Project Demo: https://your-project-link.com"
+            "GitHub: https://github.com/your-username",
+            "Live Project: https://your-project-link.com"
         ],
         "education": "Undergraduate Student / Bachelor’s Degree"
     }
@@ -144,8 +148,8 @@ def resume_docx(r):
 
     d.add_paragraph(r["role"]).alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    def sec(title):
-        s = d.add_paragraph(title)
+    def sec(t):
+        s = d.add_paragraph(t)
         s.runs[0].bold = True
 
     sec("PROFESSIONAL SUMMARY")
@@ -174,21 +178,38 @@ def cover_letter(role, skills, company):
     return f"""
 Dear Hiring Manager at {company},
 
-I am writing to express my interest in the {role} position at {company}.
-After reviewing your role expectations, I believe my current experience
-with {", ".join(skills[:4])} aligns well with the foundational skills
-you value.
+I am writing to apply for the {role} role. My current experience with
+{", ".join(skills[:4])} has helped me build a strong technical foundation,
+and I am actively strengthening my skills to meet professional standards.
 
-As a student, I focus on writing clean, understandable code and learning
-industry-relevant practices. I am particularly excited about the
-opportunity to grow within {company} and contribute meaningfully
-to your technical team.
+I am particularly interested in growing within {company}, learning from
+real-world systems, and contributing with honesty and commitment.
 
 Thank you for your time and consideration.
 
 Sincerely,
 Candidate
 """
+
+# ---------------- INTERVIEW TALKING POINTS ----------------
+def interview_points(skills, missing):
+    points = []
+    for s in skills[:3]:
+        points.append(f"I have hands-on experience with {s} and understand how it is used in real projects.")
+    if missing:
+        points.append(
+            f"I am currently improving my knowledge of {missing[0]}, focusing on practical usage."
+        )
+    return points
+
+# ---------------- LINKEDIN ABOUT ----------------
+def linkedin_about(role, skills):
+    return (
+        f"{role} aspirant with hands-on experience in "
+        f"{', '.join(skills[:4])}. Passionate about building real-world "
+        f"software, learning industry practices, and growing through "
+        f"practical project work."
+    )
 
 # ---------------- UI ----------------
 st.title("✨ CareerCraft AI")
@@ -240,18 +261,28 @@ if pdf and jd and name and company:
     # ---- APPLY NOW ----
     st.markdown("""
     <div class='card'>
-    <h3>✅ Roles you can apply for right now</h3>
+    <h3>✅ Roles you can apply for now</h3>
     <span class='badge'>Backend Intern</span>
     <span class='badge'>Junior Developer</span>
     <span class='badge'>Software Trainee</span>
-    <br><br>
-    <b>🔓 Roles unlocked after completing the plan:</b><br>
-    Backend Developer · Software Engineer
+    <p class='small'>These roles match your current skill level.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ---- RECRUITER VIEW ----
+    st.markdown(f"""
+    <div class='card'>
+    <h3>👀 Recruiter View (External Perspective)</h3>
+    <ul>
+        <li>Honest student profile with clear fundamentals</li>
+        <li>Practical exposure to APIs, Git, and data handling</li>
+        <li>Needs production-level exposure in {", ".join(missing) if missing else "advanced topics"}</li>
+    </ul>
     </div>
     """, unsafe_allow_html=True)
 
     # ---- LEARNING PLAN ----
-    st.subheader("📚 Your focused learning plan")
+    st.subheader("📚 Focused learning plan")
     for s in missing:
         if s in COURSES:
             title, time = COURSES[s]
@@ -260,14 +291,22 @@ if pdf and jd and name and company:
             <b>{s.upper()}</b><br>
             Course: {title}<br>
             Time required: {time}<br>
-            Outcome: Stronger confidence in interviews
+            Outcome: Interview confidence & practical understanding
             </div>
             """, unsafe_allow_html=True)
+
+    # ---- INTERVIEW TALKING POINTS ----
+    st.subheader("🎤 Interview talking points (use these safely)")
+    for p in interview_points(skills, missing):
+        st.markdown(f"- {p}")
+
+    # ---- LINKEDIN ABOUT ----
+    st.subheader("💼 LinkedIn About (copy & paste)")
+    st.markdown(f"<div class='card'><pre>{linkedin_about(role, skills)}</pre></div>", unsafe_allow_html=True)
 
     # ---- RESUME ----
     r = resume_data(name, role, skills, company)
     st.subheader("📄 Company-tailored resume")
-    st.caption("Tailored for the role and company you selected")
 
     with open(resume_pdf(r), "rb") as f:
         st.download_button("⬇ Download Resume (PDF)", f, "resume.pdf")
@@ -278,9 +317,7 @@ if pdf and jd and name and company:
     # ---- COVER LETTER ----
     cl = cover_letter(role, skills, company)
     st.subheader("✉ Company-specific cover letter")
-    st.caption("Honest, student-appropriate, and role-aligned")
-
     st.markdown(f"<div class='card'><pre>{cl}</pre></div>", unsafe_allow_html=True)
 
 else:
-    st.info("Upload your resume and enter role + company details to begin.")
+    st.info("Upload resume and enter role + company details to begin.")
