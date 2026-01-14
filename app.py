@@ -6,23 +6,23 @@ from reportlab.pdfgen import canvas
 import tempfile
 import re
 
-# ---------------- CONFIG ----------------
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="CareerCraft AI", page_icon="✨", layout="wide")
 
 # ---------------- STYLES ----------------
 st.markdown("""
 <style>
-body { background-color:#f8fafc; }
+body { background:#f8fafc; }
 .card {
     background:white;
-    padding:1.2rem;
-    border-radius:14px;
-    box-shadow:0 10px 30px rgba(0,0,0,0.06);
-    margin-bottom:1rem;
+    padding:1.4rem;
+    border-radius:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.08);
+    margin-bottom:1.2rem;
 }
 .badge {
     display:inline-block;
-    padding:6px 12px;
+    padding:6px 14px;
     border-radius:999px;
     background:linear-gradient(135deg,#22c55e,#16a34a);
     color:white;
@@ -33,7 +33,6 @@ body { background-color:#f8fafc; }
     background:linear-gradient(135deg,#f59e0b,#f97316);
 }
 .small { color:#475569; font-size:14px; }
-h1,h2,h3 { color:#0f172a; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -47,7 +46,7 @@ ROLE_SKILLS = {
 COURSES = {
     "sql": "SQL for Data Analysis – Mode Analytics",
     "docker": "Docker Essentials – IBM",
-    "react": "React Official Docs",
+    "react": "React Official Documentation",
     "statistics": "Statistics – Khan Academy",
     "excel": "Excel Skills – Coursera"
 }
@@ -63,16 +62,30 @@ def extract_text(file):
 def extract_skills(text, skills):
     return [s for s in skills if re.search(rf"\b{s}\b", text)]
 
-def generate_resume_docx(name, role, skills):
+def generate_resume_docx(name, role, found_skills):
     doc = Document()
     doc.add_heading(name, level=1)
-    doc.add_paragraph(role)
-    doc.add_heading("Skills", level=2)
-    doc.add_paragraph(", ".join(skills))
-    doc.add_heading("Projects", level=2)
-    doc.add_paragraph("• Built academic and personal projects aligned with role requirements.")
-    doc.add_heading("Learning Focus", level=2)
-    doc.add_paragraph("Actively strengthening backend fundamentals and deployment skills.")
+    doc.add_paragraph(f"Aspiring {role}")
+    
+    doc.add_heading("Professional Summary", level=2)
+    doc.add_paragraph(
+        f"Motivated student with hands-on exposure to {', '.join(found_skills)}. "
+        f"Actively building role-aligned skills to contribute effectively in entry-level {role} positions."
+    )
+
+    doc.add_heading("Core Skills", level=2)
+    doc.add_paragraph(", ".join(found_skills))
+
+    doc.add_heading("Projects & Experience", level=2)
+    doc.add_paragraph(
+        "• Academic and self-driven projects focused on practical application of core technologies.\n"
+        "• Experience collaborating with code repositories and structured problem-solving."
+    )
+
+    doc.add_heading("Learning & Growth", level=2)
+    doc.add_paragraph(
+        "Currently strengthening advanced concepts and production-readiness for professional roles."
+    )
     return doc
 
 def generate_pdf_resume(name, role, skills):
@@ -81,9 +94,10 @@ def generate_pdf_resume(name, role, skills):
     c.setFont("Helvetica-Bold", 18)
     c.drawString(50, 800, name)
     c.setFont("Helvetica", 12)
-    c.drawString(50, 770, role)
+    c.drawString(50, 770, f"Aspiring {role}")
     c.drawString(50, 730, "Skills:")
     c.drawString(50, 710, ", ".join(skills))
+    c.drawString(50, 680, "Focused on building role-aligned, real-world capabilities.")
     c.save()
     return temp.name
 
@@ -92,57 +106,76 @@ st.title("✨ CareerCraft AI")
 st.caption("Skill gap → learning plan → job-ready")
 
 resume = st.file_uploader("📄 Upload Resume (PDF)", type=["pdf"])
+
 mode = st.radio("Job Input Mode", ["Preset Role", "Custom JD"])
 
 if mode == "Preset Role":
     role = st.selectbox("Select Role", list(ROLE_SKILLS.keys()))
     role_skills = ROLE_SKILLS[role]
+    jd_text = f"{role} position requiring skills in {', '.join(role_skills)}"
 else:
-    role = "Custom Role"
-    jd = st.text_area("Paste Job Description")
-    role_skills = list(set(re.findall(r"[a-zA-Z]+", jd.lower())))
+    role = "Target Role"
+    jd_text = st.text_area("Paste Job Description (used for tailoring)")
+    role_skills = list(set(re.findall(r"[a-zA-Z]+", jd_text.lower())))
 
 name = st.text_input("Your Full Name")
 
-if resume and name:
-    text = extract_text(resume)
-    found = extract_skills(text, role_skills)
+if resume and name and role_skills:
+    resume_text = extract_text(resume)
+    found = extract_skills(resume_text, role_skills)
     missing = list(set(role_skills) - set(found))
 
-    st.subheader("🎯 Career Readiness")
-    stage = "Foundation Stage" if len(found) < 3 else "Growth Stage"
-    st.markdown(f"**{stage}** — You are building toward professional readiness.")
+    # ---------------- CAREER STAGE ----------------
+    st.subheader("🎯 Career Stage")
+    stage = "Foundation Stage" if len(found) < len(role_skills) / 2 else "Growth Stage"
+    st.success(f"{stage} — You are progressing toward {role} readiness.")
 
+    # ---------------- SKILL MATCH TABLE ----------------
     st.subheader("🧩 Skill Matching & Growth Areas")
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("<div class='card'><h4>💚 Skills You Already Have</h4></div>", unsafe_allow_html=True)
+        st.markdown("<div class='card'><h4>💚 Skills Aligned with the Role</h4></div>", unsafe_allow_html=True)
         for s in found:
             st.markdown(f"<span class='badge'>{s}</span>", unsafe_allow_html=True)
 
     with col2:
-        st.markdown("<div class='card'><h4>🌱 Skills To Learn Next</h4></div>", unsafe_allow_html=True)
+        st.markdown("<div class='card'><h4>🌱 Skills to Strengthen Next</h4></div>", unsafe_allow_html=True)
         for s in missing:
             st.markdown(f"<span class='badge missing'>{s}</span>", unsafe_allow_html=True)
 
+    # ---------------- APPLY-NOW ROLES ----------------
     st.subheader("🚀 Roles You Can Apply For Now")
-    st.success("Backend Intern • Software Trainee • Junior Developer")
+    st.info(f"Based on your profile, you are suitable for **{role} Intern**, **Trainee**, and **Junior-level roles**.")
 
-    st.subheader("📚 30-Day Learning Roadmap")
+    # ---------------- LEARNING PLAN ----------------
+    st.subheader("📚 Targeted Learning Roadmap")
     for s in missing:
-        st.markdown(f"**{s.upper()}** — {COURSES.get(s, 'Industry standard resources')}")
+        st.markdown(f"**{s.upper()}** → {COURSES.get(s, 'Industry-standard learning resources')}")
 
+    # ---------------- INTERVIEW TALKING POINTS ----------------
     st.subheader("🎤 Interview Talking Points")
     for s in found:
-        st.markdown(f"• I have hands-on experience with **{s}** through academic and personal projects.")
+        st.markdown(
+            f"• My experience with **{s}** aligns with the expectations of a {role}, "
+            f"and I’ve applied it in practical projects."
+        )
 
+    # ---------------- RECRUITER VIEW ----------------
     st.subheader("👀 Recruiter View")
-    st.info("Strong foundation, honest profile, learning mindset. Good internship potential.")
+    st.success(
+        f"Candidate shows a solid foundation relevant to {role}. "
+        f"Profile demonstrates honesty, learning momentum, and internship readiness."
+    )
 
+    # ---------------- LINKEDIN ABOUT ----------------
     st.subheader("💼 LinkedIn About (Copy-Paste)")
-    st.code(f"Student developer with experience in {', '.join(found)} actively building industry-ready skills.")
+    st.code(
+        f"Aspiring {role} with hands-on experience in {', '.join(found)}. "
+        f"Currently strengthening role-specific skills and seeking opportunities to grow in real-world environments."
+    )
 
+    # ---------------- RESUME DOWNLOAD ----------------
     st.subheader("📄 Generated Resume")
     doc = generate_resume_docx(name, role, found)
     doc_file = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
@@ -150,22 +183,26 @@ if resume and name:
 
     pdf_file = generate_pdf_resume(name, role, found)
 
-    col1, col2 = st.columns(2)
-    with col1:
+    c1, c2 = st.columns(2)
+    with c1:
         st.download_button("⬇ Download Resume (DOCX)", open(doc_file.name, "rb"), file_name="resume.docx")
-    with col2:
-        st.download_button("⬇ Download Resume (PDF)", open(pdf_file, "rb"), file_name="resume.pdf")
+    with c2:
+        st.download_button("⬇ Download Resume (PDF)", open(pdf_file.name, "rb"), file_name="resume.pdf")
 
+    # ---------------- COVER LETTER ----------------
     st.subheader("✉ Premium Cover Letter")
     st.text_area(
         "",
         f"""Dear Hiring Manager,
 
-I am applying for the {role} role. My background in {', '.join(found)} has helped me build a strong technical foundation, and I am actively strengthening my remaining skills to become industry-ready.
+I am writing to express my interest in the {role} position. After reviewing the role requirements, I found a strong alignment with my experience in {', '.join(found)}.
 
-I am motivated, honest about my learning journey, and eager to grow within a professional environment.
+I have actively applied these skills in academic and self-driven projects, and I am currently strengthening additional competencies required for professional excellence in this role. I value learning, adaptability, and ethical growth, and I am eager to contribute while continuing to improve.
+
+Thank you for considering my application.
 
 Sincerely,
-{name}""",
-        height=220
+{name}
+""",
+        height=260
     )
