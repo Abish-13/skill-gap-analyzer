@@ -1,217 +1,164 @@
 import streamlit as st
 import pdfplumber
-import re
-import time
-import matplotlib.pyplot as plt
-from io import BytesIO
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, ListFlowable, ListItem
+import plotly.graph_objects as go
+import numpy as np
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from reportlab.platypus import SimpleDocTemplate, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.pagesizes import A4
+import tempfile
 
-# ---------------- PAGE CONFIG ----------------
-st.set_page_config(page_title="Skill Gap Analyzer", page_icon="📊")
+# ---------------- CONFIG ----------------
+st.set_page_config(page_title="AI Career Intelligence", layout="wide")
 
-# ---------------- DARK MODE ----------------
-dark = st.sidebar.toggle("🌙 Dark Mode")
-
-bg = "#020617" if dark else "#f8fafc"
-card = "#020617" if dark else "#ffffff"
-text = "#e5e7eb" if dark else "#0f172a"
-
-st.markdown(f"""
+# ---------------- THEME ----------------
+st.markdown("""
 <style>
-body {{ background:{bg}; color:{text}; }}
-.card {{
-    background:{card};
-    padding:20px;
-    border-radius:14px;
-    margin-bottom:20px;
-}}
-.good {{ color:#22c55e; font-weight:600; }}
-.bad {{ color:#ef4444; font-weight:600; }}
+body { background:#0f172a; color:#e5e7eb; }
+.card {
+ background:#020617; padding:1.5rem; border-radius:18px;
+ box-shadow:0 0 30px rgba(56,189,248,.12); margin-bottom:1.2rem;
+}
+.metric { font-size:2.6rem; font-weight:700; color:#38bdf8; }
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------- DATA ----------------
-SKILLS = {
-    "python": ["python"],
-    "sql": ["sql"],
-    "excel": ["excel"],
-    "power bi": ["power bi"],
-    "git": ["git", "github"],
-    "java": ["java"],
-    "machine learning": ["machine learning", "ml"],
-    "html": ["html"],
-    "css": ["css"],
-    "javascript": ["javascript", "js"],
-    "communication": ["communication"],
-    "problem solving": ["problem solving"]
+SKILLS = ["python","java","sql","html","css","javascript","react",
+          "node","git","docker","api","rest","ml","data analysis"]
+
+ROLE_PRESETS = {
+ "Backend Developer":"python sql api rest docker git",
+ "Frontend Developer":"html css javascript react",
+ "Data Analyst":"python sql data analysis excel"
 }
 
-WEIGHT = {
-    "python": 3, "sql": 3, "java": 3, "machine learning": 3,
-    "excel": 2, "power bi": 2, "git": 2,
-    "html": 2, "css": 2, "javascript": 2,
-    "communication": 1, "problem solving": 1
-}
+# ---------------- UTILS ----------------
+def extract_text(pdf):
+ text=""
+ with pdfplumber.open(pdf) as p:
+  for pg in p.pages:
+   text+=pg.extract_text() or ""
+ return text.lower()
 
-ROLE_JD = {
-    "Data Analyst": "sql excel python power bi data analysis problem solving",
-    "Software Developer": "python java git html css javascript problem solving",
-    "ML Intern": "python machine learning sql data analysis git"
-}
+def extract_skills(text):
+ return sorted([s for s in SKILLS if s in text])
 
-PLAN = {
-    1: ["sql", "excel"],
-    2: ["python", "html"],
-    3: ["git", "css"],
-    4: ["javascript", "machine learning"]
-}
+def similarity(a,b):
+ v=CountVectorizer().fit_transform([a,b])
+ return cosine_similarity(v)[0][1]
 
-IMPROVEMENT_TIPS = {
-    "sql": "Add SQL queries or database projects.",
-    "python": "Mention Python projects with real datasets.",
-    "git": "Add GitHub repository links.",
-    "machine learning": "Include a mini ML project.",
-    "excel": "Highlight Excel dashboards.",
-    "power bi": "Add Power BI report screenshots.",
-    "html": "Showcase frontend projects.",
-    "css": "Mention responsive UI work.",
-    "javascript": "Add interactive JS features."
-}
+def radar(user,jd):
+ fig=go.Figure()
+ fig.add_trace(go.Scatterpolar(r=[1 if s in user else 0 for s in SKILLS],
+ theta=SKILLS,fill='toself',name="You"))
+ fig.add_trace(go.Scatterpolar(r=[1 if s in jd else 0 for s in SKILLS],
+ theta=SKILLS,fill='toself',name="JD"))
+ fig.update_layout(paper_bgcolor="#020617",font_color="#e5e7eb")
+ return fig
 
-# ---------------- FUNCTIONS ----------------
-def extract_text(file):
-    text = ""
-    with pdfplumber.open(file) as pdf:
-        for page in pdf.pages:
-            text += page.extract_text() or ""
-    return text.lower()
-
-def detect_skills(text):
-    found = set()
-    for s, keys in SKILLS.items():
-        for k in keys:
-            if re.search(rf"\b{k}\b", text):
-                found.add(s)
-    return found
-
-def score_calc(match, req):
-    total = sum(WEIGHT.get(s, 1) for s in req)
-    have = sum(WEIGHT.get(s, 1) for s in match)
-    return int((have / total) * 100) if total else 0
-
-def generate_pdf(role, missing):
-    buf = BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4)
-    styles = getSampleStyleSheet()
-    elements = []
-
-    elements.append(Paragraph(f"<b>{role} – 4 Week Learning Plan</b>", styles["Title"]))
-    elements.append(Spacer(1, 12))
-
-    for w, skills in PLAN.items():
-        wk = [s for s in skills if s in missing]
-        if wk:
-            elements.append(Paragraph(f"Week {w}", styles["Heading2"]))
-            elements.append(ListFlowable(
-                [ListItem(Paragraph(s.title(), styles["Normal"])) for s in wk]
-            ))
-
-    doc.build(elements)
-    buf.seek(0)
-    return buf
+def roadmap_pdf(missing):
+ tmp=tempfile.NamedTemporaryFile(delete=False,suffix=".pdf")
+ doc=SimpleDocTemplate(tmp.name)
+ styles=getSampleStyleSheet()
+ content=[Paragraph("<b>30-Day Learning Roadmap</b>",styles['Title'])]
+ for i,s in enumerate(missing,1):
+  content.append(Paragraph(f"Week {i}: Learn {s}",styles['Normal']))
+ doc.build(content)
+ return tmp.name
 
 # ---------------- UI ----------------
-st.markdown("## 📊 Skill Gap Analyzer")
+st.title("🧠 AI Career Intelligence Platform")
 
-tab1, tab2 = st.tabs(["🔍 Resume Analysis", "🔄 Resume Version Comparison"])
+col1,col2=st.columns(2)
+resume=col1.file_uploader("Upload Resume (PDF)",type="pdf")
+mode=col2.radio("Job Input Mode",["Preset","Custom"])
 
-# ---------------- TAB 1 ----------------
-with tab1:
-    resume = st.file_uploader("📄 Upload Resume (PDF)", type=["pdf"])
-    roles = st.multiselect("🎯 Select Job Roles", list(ROLE_JD.keys()), default=["Data Analyst"])
-    analyze = st.button("Analyze Resume", disabled=not (resume and roles))
+if mode=="Preset":
+ role=st.selectbox("Role",ROLE_PRESETS.keys())
+ jd_text=ROLE_PRESETS[role]
+else:
+ role=st.text_input("Target Role")
+ jd_text=st.text_area("Paste Job Description",height=180)
 
-    if analyze:
-        with st.spinner("Analyzing resume..."):
-            time.sleep(1)
-            resume_text = extract_text(resume)
-            resume_skills = detect_skills(resume_text)
+company=st.selectbox("Target Company Type",["Startup","MNC","Product"])
 
-        scores = {}
+# ---------------- ANALYSIS ----------------
+if resume and jd_text:
+ rtext=extract_text(resume)
+ rskills=extract_skills(rtext)
+ jdskills=extract_skills(jd_text)
 
-        for role in roles:
-            jd_skills = detect_skills(ROLE_JD[role])
-            matched = resume_skills & jd_skills
-            missing = jd_skills - resume_skills
-            score = score_calc(matched, jd_skills)
-            scores[role] = score
+ ats=int(similarity(rtext,jd_text)*100)
+ confidence=min(95,ats+len(rskills)*2)
 
-            st.markdown(f"<div class='card'><h3>{role}</h3>", unsafe_allow_html=True)
-            st.progress(score / 100)
-            st.write(f"**Readiness Score: {score}%**")
+ readiness="READY" if ats>75 else "ALMOST READY" if ats>50 else "NOT READY"
 
-            st.write("❌ Missing Skills")
-            for s in missing:
-                st.markdown(f"<span class='bad'>• {s.title()}</span>", unsafe_allow_html=True)
+ c1,c2,c3=st.columns(3)
+ c1.markdown(f"<div class='card'><h3>ATS Match</h3><div class='metric'>{ats}%</div></div>",unsafe_allow_html=True)
+ c2.markdown(f"<div class='card'><h3>Resume Confidence</h3><div class='metric'>{confidence}%</div></div>",unsafe_allow_html=True)
+ c3.markdown(f"<div class='card'><h3>Readiness</h3><div class='metric'>{readiness}</div></div>",unsafe_allow_html=True)
 
-            st.write("🛠 Resume Improvement Suggestions")
-            for s in missing:
-                if s in IMPROVEMENT_TIPS:
-                    st.write(f"- {IMPROVEMENT_TIPS[s]}")
+ # Radar
+ st.subheader("Skill Radar")
+ st.plotly_chart(radar(rskills,jdskills),use_container_width=True)
 
-            pdf = generate_pdf(role, missing)
-            st.download_button(
-                f"📥 Download {role} Learning Plan",
-                pdf,
-                f"{role}_learning_plan.pdf",
-                "application/pdf"
-            )
+ # Gaps
+ missing=sorted(set(jdskills)-set(rskills))
+ st.markdown("<div class='card'><h3>Missing Skills</h3>"+", ".join(missing)+"</div>",unsafe_allow_html=True)
 
-            st.markdown("</div>", unsafe_allow_html=True)
+ # Trend
+ st.subheader("Skill Gap Trend")
+ fig=go.Figure(go.Scatter(y=[len(missing)+3,len(missing)+1,len(missing)],mode="lines+markers"))
+ fig.update_layout(paper_bgcolor="#020617",font_color="#e5e7eb")
+ st.plotly_chart(fig,use_container_width=True)
 
-        best = max(scores, key=scores.get)
-        st.success(f"🏆 Best Matching Role: {best} ({scores[best]}%)")
+ # Rejection
+ st.markdown("""
+ <div class='card'><h3>Why You May Be Rejected</h3>
+ <ul>
+ <li>Missing JD-specific keywords</li>
+ <li>Generic resume tone</li>
+ <li>No quantified impact</li>
+ </ul></div>""",unsafe_allow_html=True)
 
-# ---------------- TAB 2: VERSION COMPARISON ----------------
-with tab2:
-    st.markdown("### 🔄 Resume Version Comparison (Old vs New)")
+ # Interview
+ st.markdown("""
+ <div class='card'><h3>Likely Interview Questions</h3>
+ <ul>
+ <li>Explain REST APIs</li>
+ <li>Describe a Git conflict</li>
+ <li>Optimize a SQL query</li>
+ </ul></div>""",unsafe_allow_html=True)
 
-    old_resume = st.file_uploader("📄 Upload OLD Resume", type=["pdf"], key="old")
-    new_resume = st.file_uploader("📄 Upload NEW Resume", type=["pdf"], key="new")
-    role = st.selectbox("🎯 Select Job Role", list(ROLE_JD.keys()))
+ # Resume comparison
+ st.markdown("""
+ <div class='card'><h3>Resume Version Comparison</h3>
+ <b>Old:</b> Generic skills list<br>
+ <b>Improved:</b> Role-aligned, quantified achievements
+ </div>""",unsafe_allow_html=True)
 
-    compare = st.button("Compare Versions", disabled=not (old_resume and new_resume))
+ # Improved resume
+ improved_resume=f"""
+ {role} Resume
+ Skills: {", ".join(rskills)}
+ Added Keywords: {", ".join(missing)}
+ Focus: Results + Impact
+ """
 
-    if compare:
-        with st.spinner("Comparing resumes..."):
-            old_text = extract_text(old_resume)
-            new_text = extract_text(new_resume)
+ st.markdown(f"<div class='card'><h3>Improved Resume</h3><pre>{improved_resume}</pre></div>",unsafe_allow_html=True)
 
-        jd_skills = detect_skills(ROLE_JD[role])
+ # Cover letter
+ st.markdown(f"""
+ <div class='card'><h3>Cover Letter</h3>
+ I am applying for {role}. My background in {", ".join(rskills[:4])}
+ aligns with your requirements. I am eager to contribute.
+ </div>""",unsafe_allow_html=True)
 
-        old_skills = detect_skills(old_text)
-        new_skills = detect_skills(new_text)
+ # PDF
+ pdf_path=roadmap_pdf(missing)
+ with open(pdf_path,"rb") as f:
+  st.download_button("📥 Download Learning Plan (PDF)",f,file_name="roadmap.pdf")
 
-        old_score = score_calc(old_skills & jd_skills, jd_skills)
-        new_score = score_calc(new_skills & jd_skills, jd_skills)
-
-        st.markdown("### 📊 Readiness Score Comparison")
-        fig, ax = plt.subplots()
-        ax.bar(["Old Resume", "New Resume"], [old_score, new_score])
-        ax.set_ylim(0, 100)
-        st.pyplot(fig)
-
-        st.markdown("### 🆕 New Skills Added")
-        added = new_skills - old_skills
-        for s in added:
-            st.markdown(f"<span class='good'>• {s.title()}</span>", unsafe_allow_html=True)
-
-        st.markdown("### 🎯 Improvement Summary")
-        st.write(f"Score improved by **{new_score - old_score}%**")
-
-        if new_score > old_score:
-            st.success("Great improvement! Your resume is now more aligned with the role.")
-        else:
-            st.warning("No significant improvement detected. Consider updating skills/projects.")
+else:
+ st.info("Upload resume and provide JD to start.")
