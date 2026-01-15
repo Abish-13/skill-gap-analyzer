@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# FIXED: Added padding-top to preventing text cutoff
+# Custom CSS for better padding and text wrapping
 st.markdown("""
     <style>
     .block-container {
@@ -25,7 +25,11 @@ st.markdown("""
     }
     h1, h2, h3 { color: #2c3e50; }
     .stButton>button { width: 100%; border-radius: 5px; font-weight: bold; }
-    .stCode { border-radius: 10px; }
+    /* Fix text area font size */
+    .stTextArea textarea {
+        font-size: 14px;
+        line-height: 1.5;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -145,7 +149,7 @@ def main():
         # --- RESULTS DASHBOARD ---
         st.title(f"👋 Hello, {user_name}!")
         
-        # FIXED: Using markdown with clear formatting to avoid "s for..." cutoff
+        # FIXED HEADER
         st.markdown(f"### 🔎 Analysis for: <span style='color:#2980b9;'>{target_role}</span>", unsafe_allow_html=True)
         st.markdown("---")
 
@@ -218,7 +222,7 @@ def main():
 
         st.markdown("---")
 
-        # 5. GENERATORS (Text Based)
+        # 5. GENERATORS (FIXED: Using Text Area for wrapping)
         st.subheader("📝 Content Generators")
         
         # LinkedIn Generator
@@ -230,7 +234,8 @@ def main():
             f"Currently expanding my expertise in {', '.join([s.title() for s in list(missing_skills)[:3]])} to drive impact in the {target_role} domain.\n\n"
             f"Open to opportunities where I can apply my skills in {list(matched_skills)[0].title() if matched_skills else 'tech'} and grow as a developer."
         )
-        st.code(linkedin_bio, language='markdown')
+        # Using text_area instead of code so it wraps
+        st.text_area("Edit & Copy:", value=linkedin_bio, height=150, key="linkedin")
 
         # Resume Text Generator
         st.markdown("#### 📄 Resume Bullet Points")
@@ -245,7 +250,7 @@ def main():
             f"• Developed projects using {list(matched_skills)[0].title() if matched_skills else 'Code'} to optimize workflows.\n"
             f"• Implemented best practices in {list(matched_skills)[1].title() if len(matched_skills)>1 else 'Development'}."
         )
-        st.code(resume_text, language='markdown')
+        st.text_area("Edit & Copy:", value=resume_text, height=250, key="resume")
 
         # Cover Letter Text Generator
         st.markdown("#### ✉️ Cover Letter Draft")
@@ -261,7 +266,7 @@ def main():
             f"Sincerely,\n"
             f"{user_name}"
         )
-        st.code(cover_letter_text, language='markdown')
+        st.text_area("Edit & Copy:", value=cover_letter_text, height=300, key="cover_letter")
 
     elif analyze_btn:
         st.warning("⚠️ Please upload a resume and provide a job description.")
