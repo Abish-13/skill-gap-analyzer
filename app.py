@@ -16,11 +16,15 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# FIXED: Added padding-top to preventing text cutoff
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    .stButton>button { width: 100%; border-radius: 5px; font-weight: bold; }
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
     h1, h2, h3 { color: #2c3e50; }
+    .stButton>button { width: 100%; border-radius: 5px; font-weight: bold; }
     .stCode { border-radius: 10px; }
     </style>
     """, unsafe_allow_html=True)
@@ -140,7 +144,9 @@ def main():
 
         # --- RESULTS DASHBOARD ---
         st.title(f"👋 Hello, {user_name}!")
-        st.subheader(f"Analysis for: **{target_role}**")
+        
+        # FIXED: Using markdown with clear formatting to avoid "s for..." cutoff
+        st.markdown(f"### 🔎 Analysis for: <span style='color:#2980b9;'>{target_role}</span>", unsafe_allow_html=True)
         st.markdown("---")
 
         # 2. ATS & Recruiter Verdict
