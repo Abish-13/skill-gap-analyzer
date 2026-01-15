@@ -7,269 +7,289 @@ import plotly.express as px
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import re
+import random
 
 # ---------------- 1. PAGE CONFIGURATION ----------------
 st.set_page_config(
-    page_title="CareerCraft AI",
+    page_title="CareerCraft AI - Pro",
     page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better padding and text wrapping
+# Custom CSS for "Market Leader" polish
 st.markdown("""
     <style>
-    .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-    }
-    h1, h2, h3 { color: #2c3e50; }
-    .stButton>button { width: 100%; border-radius: 5px; font-weight: bold; }
-    /* Fix text area font size */
-    .stTextArea textarea {
-        font-size: 14px;
-        line-height: 1.5;
-    }
+    .block-container { padding-top: 2rem; padding-bottom: 2rem; }
+    h1, h2, h3 { color: #2c3e50; font-family: 'Helvetica Neue', sans-serif; }
+    .stButton>button { width: 100%; border-radius: 8px; font-weight: bold; border: none; padding: 0.5rem 1rem; }
+    .stButton>button:hover { transform: scale(1.02); transition: 0.2s; }
+    .stTextArea textarea { font-family: 'Courier New', monospace; font-size: 14px; background-color: #f8f9fa; }
+    .metric-box { border: 1px solid #e0e0e0; padding: 15px; border-radius: 10px; background: white; text-align: center; }
+    .success-text { color: #27ae60; font-weight: bold; }
+    .warning-text { color: #d35400; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# ---------------- 2. KNOWLEDGE BASE ----------------
+# ---------------- 2. INTELLIGENT DATABASES ----------------
+
 SKILL_DB = {
-    "Programming": ["python", "java", "c++", "c", "javascript", "typescript", "ruby", "swift", "go", "php"],
-    "Web Frameworks": ["react", "angular", "vue", "django", "flask", "spring boot", "node.js", "express", "fastapi"],
-    "Data Science": ["pandas", "numpy", "scikit-learn", "tensorflow", "pytorch", "matplotlib", "seaborn", "tableau", "power bi"],
-    "Database": ["sql", "mysql", "postgresql", "mongodb", "oracle", "redis", "firebase"],
-    "DevOps/Cloud": ["aws", "azure", "google cloud", "docker", "kubernetes", "jenkins", "git", "github", "gitlab", "ci/cd"],
-    "Tools": ["jira", "trello", "slack", "excel", "linux", "bash"],
-    "Soft Skills": ["communication", "leadership", "problem solving", "teamwork", "time management", "critical thinking"]
+    # Expanded with related terms for smarter matching
+    "Frontend": ["javascript", "react", "angular", "vue", "html", "css", "tailwind", "bootstrap", "redux", "typescript", "figma", "responsive"],
+    "Backend": ["python", "django", "flask", "fastapi", "node.js", "express", "java", "spring boot", "c#", ".net", "go", "ruby", "php"],
+    "Database": ["sql", "mysql", "postgresql", "mongodb", "firebase", "redis", "oracle", "dynamodb"],
+    "DevOps": ["aws", "azure", "gcp", "docker", "kubernetes", "jenkins", "github actions", "terraform", "linux", "bash", "ci/cd"],
+    "Data": ["pandas", "numpy", "scikit-learn", "tensorflow", "pytorch", "sql", "power bi", "tableau", "excel", "spark", "hadoop"],
+    "Core": ["git", "github", "agile", "scrum", "jira", "unit testing", "rest api", "graphql"]
 }
 
-ROLES_DB = {
-    "Software Engineer": ["python", "java", "c++", "git", "sql", "problem solving", "data structures", "algorithms"],
-    "Data Scientist": ["python", "machine learning", "statistics", "sql", "pandas", "numpy", "tensorflow", "data visualization"],
-    "Frontend Developer": ["javascript", "react", "html", "css", "figma", "git", "responsive design"],
-    "Backend Developer": ["python", "java", "node.js", "sql", "api", "database", "server", "django"],
-    "DevOps Engineer": ["linux", "aws", "docker", "kubernetes", "jenkins", "scripting", "network"],
-    "Product Manager": ["communication", "jira", "roadmap", "agile", "scrum", "analytics", "user research"]
+# Project-Based Learning Map (The "Fix")
+PROJECT_IDEAS = {
+    "react": "Build a **Trello Clone** (Drag & Drop) to master State & Props.",
+    "python": "Create a **Web Scraper** for stock prices using BeautifulSoup.",
+    "sql": "Design a **Library Management System** schema and write complex JOIN queries.",
+    "javascript": "Build a **Weather Dashboard** fetching real data from an API.",
+    "aws": "Deploy a static website using **S3 & CloudFront**.",
+    "docker": "Containerize a simple Python/Node app and run it locally.",
+    "git": "Contribute to an **Open Source** repo or simulate a Merge Conflict resolution."
 }
 
-LEARNING_LINKS = {
-    "python": "https://www.coursera.org/specializations/python",
-    "java": "https://www.udemy.com/topic/java/",
-    "react": "https://react.dev/learn",
-    "sql": "https://www.khanacademy.org/computing/computer-programming/sql",
-    "machine learning": "https://www.coursera.org/learn/machine-learning",
-    "aws": "https://aws.amazon.com/training/",
-    "git": "https://git-scm.com/doc",
-    "docker": "https://docs.docker.com/get-started/",
-    "communication": "https://www.linkedin.com/learning/topics/communication"
+# Interview "Grill" Questions (The "Differentiation")
+INTERVIEW_QUESTIONS = {
+    "react": "I see you don't list React. How would you handle state management in a large application if you had to learn it today?",
+    "sql": "We use SQL heavily. Since it's missing, how would you approach optimizing a slow database query?",
+    "python": "Our stack is Python-based. Explain how you would manage memory in a resource-heavy script.",
+    "git": "Version control is critical. Describe a situation where you'd need to use 'git rebase' vs 'git merge'."
 }
 
-# ---------------- 3. HELPER FUNCTIONS ----------------
+# ---------------- 3. SMART FUNCTIONS ----------------
 
-def extract_text_from_file(uploaded_file):
+def extract_text(uploaded_file):
     text = ""
     try:
         if uploaded_file.name.endswith('.pdf'):
             with pdfplumber.open(uploaded_file) as pdf:
-                for page in pdf.pages:
-                    text += page.extract_text() or ""
+                for page in pdf.pages: text += page.extract_text() or ""
         elif uploaded_file.name.endswith('.docx'):
             doc = docx.Document(uploaded_file)
-            for para in doc.paragraphs:
-                text += para.text + "\n"
-    except Exception as e:
-        st.error(f"Error reading file: {e}")
-    return text.lower()
+            for para in doc.paragraphs: text += para.text + "\n"
+    except Exception: return ""
+    return text
 
-def extract_skills_from_text(text):
-    found_skills = set()
+def extract_skills(text):
+    text = text.lower()
+    found = set()
     for category, skills in SKILL_DB.items():
         for skill in skills:
+            # Smart regex: looks for word boundaries to avoid finding "Java" in "Javascript"
             if re.search(r'\b' + re.escape(skill) + r'\b', text):
-                found_skills.add(skill)
-    return found_skills
+                found.add(skill)
+    return found
 
-def calculate_ai_match(resume_text, jd_text):
-    documents = [resume_text, jd_text]
+def get_name_from_file(filename, text):
+    """Tries to be smart about extracting the name."""
+    # 1. Try filename cleaning (e.g., "John_Doe_Resume.pdf")
+    clean_name = filename.split('.')[0].replace('_', ' ').replace('-', ' ')
+    clean_name = re.sub(r'\bresume\b', '', clean_name, flags=re.IGNORECASE).strip()
+    if len(clean_name.split()) >= 2:
+        return clean_name.title()
+    # 2. Fallback: First line of resume
+    first_line = text.split('\n')[0].strip()
+    if len(first_line.split()) <= 3:
+        return first_line.title()
+    return "Candidate"
+
+def calculate_match(resume_text, jd_text, resume_skills, jd_skills):
+    # 1. Keyword Score (Hard Skills)
+    if not jd_skills:
+        k_score = 0
+    else:
+        k_score = int((len(resume_skills.intersection(jd_skills)) / len(jd_skills)) * 100)
+    
+    # 2. Context Score (Soft/Semantic Match)
     tfidf = TfidfVectorizer(stop_words='english')
-    tfidf_matrix = tfidf.fit_transform(documents)
-    similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])
-    return round(similarity[0][0] * 100, 2)
+    try:
+        matrix = tfidf.fit_transform([resume_text, jd_text])
+        c_score = int(cosine_similarity(matrix[0:1], matrix[1:2])[0][0] * 100)
+    except:
+        c_score = 0
+        
+    # Weighted Average: 60% Keywords (ATS reality), 40% Context (Human reality)
+    final_score = int((k_score * 0.6) + (c_score * 0.4))
+    return final_score, k_score, c_score
 
-# ---------------- 4. MAIN APPLICATION ----------------
+# ---------------- 4. APP LAYOUT ----------------
 
 def main():
-    # --- SIDEBAR INPUTS ---
+    # --- SIDEBAR: ONBOARDING ---
     with st.sidebar:
-        st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=60)
+        st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=50)
         st.title("CareerCraft AI")
-        st.markdown("### 1️⃣ Inputs")
-        uploaded_file = st.file_uploader("Upload Resume", type=["pdf", "docx"])
+        st.markdown("Optimize your resume for the **Top 1%**.")
         
-        input_mode = st.radio("Target:", ["Preset Role", "Custom JD"])
+        uploaded_file = st.file_uploader("📄 Upload Resume", type=["pdf", "docx"])
         
-        target_role = "General"
+        jd_input = st.radio("🎯 Target Job:", ["Paste JD (Recommended)", "Preset Role"])
         jd_text = ""
-        
-        if input_mode == "Preset Role":
-            target_role = st.selectbox("Role", list(ROLES_DB.keys()))
-            jd_text = " ".join(ROLES_DB[target_role])
+        role_title = "General Role"
+
+        if jd_input == "Paste JD (Recommended)":
+            role_title = st.text_input("Job Title (e.g. Senior React Dev)")
+            jd_text = st.text_area("Paste the Job Description here...")
         else:
-            target_role = st.text_input("Role Name (e.g., Python Dev)")
-            jd_text = st.text_area("Paste Job Description")
+            role_title = st.selectbox("Select Role", ["Frontend Developer", "Backend Developer", "Data Scientist", "DevOps Engineer"])
+            # Simple preset generation
+            presets = {"Frontend Developer": "react javascript html css git figma redux", "Backend Developer": "python django sql api docker aws", "Data Scientist": "python pandas sql machine learning statistics", "DevOps Engineer": "aws docker kubernetes linux ci/cd"}
+            jd_text = presets.get(role_title, "")
 
-        user_name = st.text_input("Candidate Name", "Candidate")
-        analyze_btn = st.button("🚀 Analyze Profile")
+        # Auto-Extract Name (Fixing Friction)
+        if uploaded_file:
+            raw_text = extract_text(uploaded_file)
+            auto_name = get_name_from_file(uploaded_file.name, raw_text)
+            user_name = st.text_input("Your Name", value=auto_name)
+        else:
+            user_name = st.text_input("Your Name", value="Candidate")
+            raw_text = ""
 
-    # --- MAIN LOGIC ---
+        analyze_btn = st.button("🚀 Analyze My Fit")
+
+    # --- MAIN CONTENT ---
     if analyze_btn and uploaded_file and jd_text:
         
-        # 1. Processing
-        with st.spinner("Analyzing your profile..."):
-            resume_text = extract_text_from_file(uploaded_file)
-            resume_skills = extract_skills_from_text(resume_text)
-            jd_skills = extract_skills_from_text(jd_text.lower())
-            
-            matched_skills = resume_skills.intersection(jd_skills)
-            missing_skills = jd_skills.difference(resume_skills)
-            
-            keyword_score = round((len(matched_skills) / len(jd_skills)) * 100) if jd_skills else 0
-            ai_score = calculate_ai_match(resume_text, jd_text)
-            final_score = int((keyword_score * 0.6) + (ai_score * 0.4))
-
-            # Role Fit Calculations
-            role_scores = {}
-            for role, skills in ROLES_DB.items():
-                r_skills = set(skills)
-                match = len(resume_skills.intersection(r_skills))
-                role_scores[role] = int((match / len(r_skills)) * 100)
-            sorted_roles = sorted(role_scores.items(), key=lambda x: x[1], reverse=True)
-
-        # --- RESULTS DASHBOARD ---
-        st.title(f"👋 Hello, {user_name}!")
+        # PROCESSING
+        resume_skills = extract_skills(raw_text)
+        jd_skills = extract_skills(jd_text)
         
-        # FIXED HEADER
-        st.markdown(f"### 🔎 Analysis for: <span style='color:#2980b9;'>{target_role}</span>", unsafe_allow_html=True)
-        st.markdown("---")
-
-        # 2. ATS & Recruiter Verdict
-        col1, col2 = st.columns([1, 1.5])
+        matched = resume_skills.intersection(jd_skills)
+        missing = jd_skills.difference(resume_skills)
         
-        with col1:
-            st.markdown("### 🎯 ATS Readiness")
-            fig = go.Figure(go.Indicator(
-                mode = "gauge+number",
-                value = final_score,
-                domain = {'x': [0, 1], 'y': [0, 1]},
-                gauge = {
-                    'axis': {'range': [None, 100]},
-                    'bar': {'color': "#2ecc71" if final_score > 70 else "#f1c40f" if final_score > 40 else "#e74c3c"}
-                }
-            ))
-            fig.update_layout(height=250, margin=dict(l=20, r=20, t=30, b=20))
-            st.plotly_chart(fig, use_container_width=True)
+        final_score, k_score, c_score = calculate_match(raw_text, jd_text, resume_skills, jd_skills)
 
-        with col2:
-            st.markdown("### 🧠 Recruiter's Verdict")
-            if final_score > 75:
-                st.success("✅ **Strong Candidate!** Your profile is well-aligned. Ready for interviews.")
-            elif final_score > 50:
-                st.warning("⚠️ **Potential Fit.** You have the basics, but need to add specific missing skills.")
-            else:
-                st.error("❌ **Needs Improvement.** Significant skill gap detected. Focus on the roadmap below.")
-            
-            # Role Fit Graph + List
-            st.markdown("**🏆 Role Fit Analysis**")
-            df_radar = pd.DataFrame(dict(r=list(role_scores.values()), theta=list(role_scores.keys())))
-            fig_radar = px.line_polar(df_radar, r='r', theta='theta', line_close=True, range_r=[0,100])
-            fig_radar.update_traces(fill='toself')
-            fig_radar.update_layout(height=180, margin=dict(t=20, b=20, l=40, r=40))
-            st.plotly_chart(fig_radar, use_container_width=True)
-            
-            with st.expander("📋 View Role Matches (Click to Expand)", expanded=False):
-                for role, score in sorted_roles:
-                    if score >= 80: st.write(f"✅ **{role}**: {score}%")
-                    elif score >= 50: st.write(f"⚠️ **{role}**: {score}%")
-                    else: st.write(f"❌ **{role}**: {score}%")
-
-        st.markdown("---")
-
-        # 3. Skills Analysis
-        c1, c2 = st.columns(2)
+        # --- 1. HERO SECTION ---
+        st.title(f"👋 Hello, {user_name}.")
+        st.caption(f"Targeting: **{role_title}**")
+        
+        # --- 2. SCORECARD (Fixed: Detailed Breakdown) ---
+        c1, c2, c3 = st.columns(3)
         with c1:
-            st.subheader("💚 Matched Skills")
-            if matched_skills:
-                for s in matched_skills: st.success(f"✔ {s.title()}")
-            else: st.info("No direct matches found.")
-        
+            st.metric("Overall Match", f"{final_score}%", delta=f"{final_score-50}% vs Avg", delta_color="normal")
         with c2:
-            st.subheader("🌱 Missing Skills")
-            if missing_skills:
-                for s in missing_skills: st.error(f"❌ {s.title()}")
-            else: st.success("All skills matched!")
+            st.metric("Keyword Match (ATS)", f"{k_score}%", "Hard Skills")
+        with c3:
+            st.metric("Context Match (AI)", f"{c_score}%", "Relevance")
+
+        # --- 3. GAMIFICATION: "WHAT IF" SIMULATOR (The Killer Feature) ---
+        if missing:
+            st.markdown("---")
+            st.subheader("🧪 The 'What If' Simulator")
+            st.caption("Select skills you plan to learn this week to see how it affects your score.")
+            
+            simulated_learning = st.multiselect("Add skills to simulate:", list(missing))
+            
+            if simulated_learning:
+                # Recalculate Logic
+                sim_matched = matched.union(set(simulated_learning))
+                sim_k_score = int((len(sim_matched) / len(jd_skills)) * 100)
+                sim_final = int((sim_k_score * 0.6) + (c_score * 0.4))
+                
+                st.success(f"🚀 **Potential Score:** {sim_final}% (+{sim_final - final_score}%)")
+                st.progress(sim_final)
+            else:
+                st.info("👈 Try adding skills above to see your potential growth!")
 
         st.markdown("---")
 
-        # 4. Learning & Interview
-        st.subheader("📚 Personalized Learning Plan")
-        with st.expander("Show Recommended Resources", expanded=True):
-            if missing_skills:
-                for s in list(missing_skills)[:5]:
-                    link = LEARNING_LINKS.get(s, f"https://www.google.com/search?q={s}+tutorial")
-                    st.write(f"🔹 **{s.title()}** → [Start Learning]({link})")
-            else: st.write("Keep building projects!")
+        # --- 4. DEEP DIVE ANALYSIS ---
+        col_left, col_right = st.columns([1, 1])
+
+        with col_left:
+            st.subheader("✅ You Have")
+            if matched:
+                st.write(", ".join([f"**{s.title()}**" for s in matched]))
+            else:
+                st.warning("No exact keyword matches found. Check your spelling.")
+
+        with col_right:
+            st.subheader("⚠️ You Need (Project-Based Fix)")
+            if missing:
+                for skill in list(missing)[:5]: # Show top 5
+                    idea = PROJECT_IDEAS.get(skill, f"Build a small project using **{skill.title()}**.")
+                    st.markdown(f"**{skill.title()}**: {idea}")
+            else:
+                st.success("You have all the required skills! Focus on Interview Prep.")
 
         st.markdown("---")
 
-        # 5. GENERATORS (FIXED: Using Text Area for wrapping)
-        st.subheader("📝 Content Generators")
+        # --- 5. GENERATORS (Fixed Logic) ---
+        st.subheader("📝 Intelligent Generators")
         
-        # LinkedIn Generator
-        st.markdown("#### 💼 LinkedIn 'About' Section")
-        linkedin_bio = (
-            f"🚀 Aspiring {target_role} | Tech Enthusiast\n\n"
-            f"Passionate about leveraging technology to solve real-world problems. "
-            f"Skilled in {', '.join([s.title() for s in list(matched_skills)[:5]])}. "
-            f"Currently expanding my expertise in {', '.join([s.title() for s in list(missing_skills)[:3]])} to drive impact in the {target_role} domain.\n\n"
-            f"Open to opportunities where I can apply my skills in {list(matched_skills)[0].title() if matched_skills else 'tech'} and grow as a developer."
-        )
-        # Using text_area instead of code so it wraps
-        st.text_area("Edit & Copy:", value=linkedin_bio, height=150, key="linkedin")
+        tab1, tab2, tab3, tab4 = st.tabs(["Cover Letter", "LinkedIn About", "Interview Prep", "ATS Text"])
 
-        # Resume Text Generator
-        st.markdown("#### 📄 Resume Bullet Points")
-        resume_text = (
-            f"**PROFILE SUMMARY**\n"
-            f"Motivated {target_role} with strong foundation in {', '.join([s.title() for s in list(matched_skills)[:3]])}. "
-            f"Eager to contribute to innovative projects and solve complex problems.\n\n"
-            f"**TECHNICAL SKILLS**\n"
-            f"• Proficient: {', '.join([s.title() for s in matched_skills])}\n"
-            f"• Learning: {', '.join([s.title() for s in list(missing_skills)[:3]])}\n\n"
-            f"**PROJECT HIGHLIGHTS**\n"
-            f"• Developed projects using {list(matched_skills)[0].title() if matched_skills else 'Code'} to optimize workflows.\n"
-            f"• Implemented best practices in {list(matched_skills)[1].title() if len(matched_skills)>1 else 'Development'}."
-        )
-        st.text_area("Edit & Copy:", value=resume_text, height=250, key="resume")
+        # TAB 1: SMART COVER LETTER
+        with tab1:
+            st.caption("This draft adjusts based on your match score. It NEVER mentions low percentages.")
+            
+            # Logic: If Score > 70 (Confidence), If Score < 70 (Growth Mindset)
+            if final_score > 70:
+                opening_line = f"My proven track record in {', '.join(list(matched)[:3])} aligns perfectly with the requirements for the {role_title} role."
+                focus_area = "I am eager to bring my expertise to your team immediately."
+            else:
+                opening_line = f"I am excited to apply for the {role_title} position. While I am proficient in {', '.join(list(matched)[:2])}, I am a rapid learner actively upskilling in {', '.join(list(missing)[:2])}."
+                focus_area = "My ability to adapt quickly to new tech stacks makes me a strong long-term asset."
 
-        # Cover Letter Text Generator
-        st.markdown("#### ✉️ Cover Letter Draft")
-        cover_letter_text = (
-            f"Dear Hiring Manager,\n\n"
-            f"I am writing to express my enthusiastic interest in the {target_role} position. "
-            f"With a solid grounding in {', '.join([s.title() for s in list(matched_skills)[:3]])}, "
-            f"I am confident in my ability to contribute effectively to your team.\n\n"
-            f"My analysis shows a {final_score}% match with your requirements. I am particularly strong in "
-            f"{list(matched_skills)[0].title() if matched_skills else 'coding'} and am actively closing gaps in "
-            f"{list(missing_skills)[0].title() if missing_skills else 'advanced topics'} to ensure I am industry-ready.\n\n"
-            f"Thank you for considering my application. I look forward to the possibility of discussing how my skills align with your needs.\n\n"
-            f"Sincerely,\n"
-            f"{user_name}"
-        )
-        st.text_area("Edit & Copy:", value=cover_letter_text, height=300, key="cover_letter")
+            cl_text = f"""Dear Hiring Manager,
+
+I am writing to express my strong interest in the {role_title} position at your company. {opening_line}
+
+Throughout my academic and project experience, I have developed a disciplined approach to software development. For example, my work with {list(matched)[0].title() if matched else 'technology'} demonstrated my ability to solve complex problems efficiently.
+
+{focus_area}
+
+Thank you for your time and consideration.
+
+Sincerely,
+{user_name}"""
+            st.text_area("Copy this Draft:", value=cl_text, height=300)
+
+        # TAB 2: STAR METHOD LINKEDIN
+        with tab2:
+            st.caption("Narrative-style bio for your profile.")
+            linkedin_text = f"""🚀 Aspiring {role_title} | Problem Solver
+
+I am a developer passionate about building scalable solutions. With a strong foundation in {', '.join(list(matched)[:3])}, I focus on writing clean, efficient code.
+
+Currently, I am expanding my technical toolkit by building projects in {', '.join(list(missing)[:3]) if missing else 'advanced system design'}. My goal is to leverage technology to drive real-world impact.
+
+Open to connecting with fellow engineers and recruiters!"""
+            st.text_area("LinkedIn Bio:", value=linkedin_text, height=200)
+
+        # TAB 3: INTERVIEW GRILL (New Feature)
+        with tab3:
+            st.caption("🔥 Tough Questions based on your MISSING skills.")
+            if missing:
+                for skill in list(missing)[:3]:
+                    q = INTERVIEW_QUESTIONS.get(skill, f"Tell me about a time you had to learn **{skill.title()}** quickly. How did you do it?")
+                    st.info(f"**Q:** {q}")
+            else:
+                st.success("You are well-prepared technically! Prepare for behavioral questions now.")
+
+        # TAB 4: ATS FRIENDLY VERSION
+        with tab4:
+            st.caption("Plain text version of your resume (Robots love this).")
+            ats_text = f"""NAME: {user_name}
+ROLE: {role_title}
+
+SKILLS:
+{', '.join([s.title() for s in matched])}
+
+SUMMARY:
+Motivated professional with exposure to {', '.join(list(matched)[:3])}. Dedicated to writing clean code and continuous learning.
+"""
+            st.text_area("ATS-Friendly Text:", value=ats_text, height=200)
+            st.download_button("Download .txt", ats_text, "resume_ats.txt")
 
     elif analyze_btn:
-        st.warning("⚠️ Please upload a resume and provide a job description.")
+        st.warning("⚠️ Please upload a resume and ensure the Job Description is filled.")
 
 if __name__ == "__main__":
     main()
