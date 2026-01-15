@@ -13,8 +13,8 @@ from reportlab.lib.pagesizes import letter
 
 # ---------------- 1. PAGE CONFIGURATION ----------------
 st.set_page_config(
-    page_title="CareerCraft AI - The Best One",
-    page_icon="🦄",
+    page_title="CareerCraft AI - Ultimate",
+    page_icon="💎",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -47,6 +47,14 @@ st.markdown("""
         border-radius: 4px; font-size: 0.8em; font-weight: bold; border: 1px solid #166534; margin-left: 5px;
     }
     
+    /* Missing Keywords Badges (FIXED SPACING) */
+    .missing-tag {
+        background-color: #fee2e2; color: #991b1b; padding: 4px 10px; 
+        border-radius: 6px; font-size: 0.9em; font-weight: 600; 
+        margin-right: 8px; display: inline-block; margin-bottom: 8px;
+        border: 1px solid #fecaca;
+    }
+    
     /* Answer Analyzer Box */
     .feedback-box-weak { border-left: 5px solid #ef4444; background: #fef2f2; padding: 15px; border-radius: 5px; }
     .feedback-box-strong { border-left: 5px solid #22c55e; background: #f0fdf4; padding: 15px; border-radius: 5px; }
@@ -66,7 +74,7 @@ SKILL_DB = {
     "Data": ["pandas", "numpy", "scikit-learn", "tensorflow", "pytorch", "tableau", "power bi", "excel", "spark"]
 }
 
-# MICRO-PROJECT BLUEPRINTS (The "Platinum" Standard + Salary Data)
+# MICRO-PROJECT BLUEPRINTS (Platinum Standard)
 PROJECT_BLUEPRINTS = {
     "react": {"title": "Trello Clone (Kanban)", "task": "Build a Drag-and-Drop Task Board using **React DnD** and **Redux Toolkit**.", "salary": "₹4 LPA"},
     "next.js": {"title": "SSR Blog Platform", "task": "Build a Server-Side Rendered (SSR) Blog using **getStaticProps** to optimize SEO performance.", "salary": "₹5 LPA"},
@@ -83,7 +91,7 @@ PROJECT_BLUEPRINTS = {
     "html": {"title": "Accessible Landing Page", "task": "Refactor a `div`-heavy page into **Semantic HTML** (<nav>, <article>, <main>) to score 100 on Lighthouse.", "salary": "₹1 LPA"}
 }
 
-# DYNAMIC INTERVIEW QUESTIONS (Technical Deep-Dives)
+# DYNAMIC INTERVIEW QUESTIONS
 INTERVIEW_Q = {
     "react": "Recruiter: I see you built a Trello Clone. How did you optimize rendering to prevent lag when dragging items? Did you use `React.memo`?",
     "next.js": "Recruiter: Explain the trade-off between **SSR (Server-Side Rendering)** and **ISR (Incremental Static Regeneration)** in your blog.",
@@ -148,16 +156,13 @@ def calculate_metrics(resume_text, jd_text, r_skills, j_skills):
     return final, k_score, c_score
 
 def analyze_answer(answer):
-    """Simulates an AI grading the user's interview answer."""
     score = 0
     feedback = []
-    
-    # Simple Heuristics for Demo
     weak_words = ["maybe", "think", "probably", "sort of", "just"]
     strong_words = ["architected", "designed", "implemented", "optimized", "reduced", "increased", "led", "built"]
     
     if len(answer) < 20:
-        return "⚠️ Weak Answer", "Too short. You need to explain your process using the STAR method (Situation, Task, Action, Result).", "weak"
+        return "⚠️ Weak Answer", "Too short. Use the STAR method (Situation, Task, Action, Result).", "weak"
     
     for w in weak_words:
         if w in answer.lower():
@@ -169,20 +174,17 @@ def analyze_answer(answer):
             score += 20
     
     if score > 10:
-        return "✅ Strong Answer", "Great use of action verbs! Make sure to quantify your results (e.g., 'improved by 20%').", "strong"
+        return "✅ Strong Answer", "Great use of action verbs! Make sure to quantify your results.", "strong"
     else:
-        return "⚠️ Needs Improvement", f"Your answer is a bit passive. {feedback[0] if feedback else 'Try to focus on the impact of your actions.'}", "weak"
+        return "⚠️ Needs Improvement", f"Your answer is passive. {feedback[0] if feedback else 'Focus on the impact of your actions.'}", "weak"
 
 def generate_cheat_sheet(name, role, skills, bullets):
-    """Generates a PDF Cheat Sheet."""
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=letter)
-    
     c.setFont("Helvetica-Bold", 16)
     c.drawString(50, 750, f"Interview Cheat Sheet: {name}")
     c.setFont("Helvetica", 12)
     c.drawString(50, 730, f"Target Role: {role}")
-    
     c.line(50, 720, 550, 720)
     
     y = 690
@@ -201,11 +203,10 @@ def generate_cheat_sheet(name, role, skills, bullets):
     c.setFont("Helvetica", 10)
     
     for skill, bullet in list(bullets.items())[:5]:
-        # Simple text wrap logic for PDF
         text = bullet.replace("**", "")
         c.drawString(50, y, f"[{skill.upper()}]")
         y -= 15
-        c.drawString(60, y, text[:90] + "...") # Truncate for demo PDF simplicity
+        c.drawString(60, y, text[:90] + "...") 
         y -= 20
         
     y -= 20
@@ -228,11 +229,10 @@ def main():
         st.session_state['completed_projects'] = set()
         st.session_state['readiness_score'] = 25 
         
-    # --- SIDEBAR ---
     with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=50)
         st.title("CareerCraft AI")
-        st.caption("Ultimate Edition v7.0")
+        st.caption("Ultimate Edition v8.0")
         
         uploaded_file = st.file_uploader("1. Upload Resume", type=["pdf", "docx"])
         
@@ -263,7 +263,6 @@ def main():
             else:
                 st.toast("⚠️ Upload Resume & Set Job Target!", icon="🚨")
 
-    # --- MAIN DASHBOARD ---
     if st.session_state['analyzed']:
         r_text = st.session_state['resume_text']
         j_text = st.session_state['jd_text']
@@ -273,7 +272,7 @@ def main():
         missing = j_skills.difference(r_skills)
         final, k_score, c_score = calculate_metrics(r_text, j_text, r_skills, j_skills)
 
-        # 1. HERO & GAMIFICATION
+        # HERO
         st.title(f"🔍 Analysis: {st.session_state['role_title']}")
         
         col_bar, col_export = st.columns([3, 1])
@@ -282,11 +281,10 @@ def main():
             st.progress(st.session_state['readiness_score'] / 100)
             st.markdown(f"**Level: {st.session_state['readiness_score']}%** (Build projects to level up!)")
         with col_export:
-            # CHEAT SHEET (Panic Button)
             pdf_bytes = generate_cheat_sheet("Candidate", st.session_state['role_title'], matched, RESUME_BULLETS)
             st.download_button("📄 Interview Cheat Sheet", data=pdf_bytes, file_name="Interview_Cheat_Sheet.pdf", mime="application/pdf")
 
-        # 2. X-RAY METRICS
+        # METRICS
         st.markdown("---")
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -295,7 +293,8 @@ def main():
             st.metric("Keyword Match", f"{k_score}%")
             if missing:
                 st.caption("❌ **CRITICAL MISSING:**")
-                tags_html = "".join([f"<span class='missing-tag'>{s}</span>" for s in list(missing)[:6]])
+                # FIXED: Added join with space to prevent mashed text
+                tags_html = " ".join([f"<span class='missing-tag'>{s}</span>" for s in list(missing)[:6]])
                 st.markdown(tags_html, unsafe_allow_html=True)
             else:
                 st.success("✅ No Keywords Missing!")
@@ -307,7 +306,7 @@ def main():
 
         st.markdown("---")
 
-        # 3. MICRO-PROJECT BLUEPRINTS (With Money Motivation)
+        # BLUEPRINTS
         col_L, col_R = st.columns([1, 1.2])
 
         with col_L:
@@ -352,24 +351,21 @@ def main():
 
         st.markdown("---")
 
-        # 4. THE INTERVIEW GRILL (With Answer Analyzer)
+        # GRILL
         st.subheader("🔥 The Interview Grill")
         
         tab1, tab2 = st.tabs(["🔥 Hot Seat (Simulator)", "📄 Cover Letter"])
 
         with tab1:
             st.caption("Questions appear here as you unlock skills.")
-            
             active_question = None
             
-            # Show Unlocked Questions
             if st.session_state['completed_projects']:
                 st.markdown("**🔓 UNLOCKED QUESTIONS (New Skills):**")
                 for s in st.session_state['completed_projects']:
                     q = INTERVIEW_Q.get(s, f"How did you implement {s}?")
                     st.success(f"**{s.title()} (Unlocked):** {q}")
-                    active_question = q # Set last unlocked as active for analysis
-
+                    active_question = q 
             elif matched:
                 st.markdown("**Based on your current resume:**")
                 for s in list(matched)[:1]:
@@ -377,12 +373,10 @@ def main():
                      st.info(f"**{s.title()}:** {q}")
                      active_question = q
 
-            # ANSWER ANALYZER
             if active_question:
                 st.markdown("---")
                 st.markdown("🎙️ **Practice Your Answer:**")
                 user_ans = st.text_area("Type your answer here to get AI feedback...", height=100)
-                
                 if st.button("Analyze My Answer"):
                     if user_ans:
                         verdict, text, style = analyze_answer(user_ans)
