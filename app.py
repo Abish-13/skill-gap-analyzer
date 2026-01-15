@@ -2,7 +2,6 @@ import streamlit as st
 import pdfplumber
 import re
 from docx import Document
-from docx.shared import Pt
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, ListFlowable, ListItem
@@ -21,13 +20,7 @@ h1 { color:#2563eb; }
 st.title("✨ CareerCraft AI")
 st.caption("Skill gap → learning plan → job-ready")
 
-# ---------------- LOGIC ----------------
-STOPWORDS = {
-    "a","an","the","and","or","to","in","of","for","with","as","on","we",
-    "are","is","was","were","be","being","been","such","that","this",
-    "it","they","their","you","your","i"
-}
-
+# ---------------- SKILL LOGIC ----------------
 VALID_SKILLS = {
     "python","java","sql","git","github","docker",
     "data structures","oop","object oriented programming",
@@ -52,7 +45,6 @@ LEARNING_RESOURCES = {
     "java":"Java Programming – Coursera",
     "data structures":"DSA – GeeksforGeeks",
     "oop":"Object-Oriented Programming – Udemy",
-    "object oriented programming":"OOP Concepts – Udemy",
     "debugging":"Debugging Best Practices – Google",
     "git":"Git & GitHub – freeCodeCamp",
     "sql":"SQL for Data Analysis – Mode",
@@ -68,11 +60,7 @@ def clean_text(text):
 
 def extract_skills(text):
     text = clean_text(text)
-    found = set()
-    for skill in VALID_SKILLS:
-        if skill in text:
-            found.add(skill)
-    return found
+    return {skill for skill in VALID_SKILLS if skill in text}
 
 # ---------------- INPUT ----------------
 resume_file = st.file_uploader("📄 Upload Resume (PDF)", type="pdf")
@@ -95,28 +83,34 @@ if resume_file:
 
     resume_skills = extract_skills(resume_text)
 
-    required_skills = ROLE_SKILLS[target_role] if job_mode == "Preset Role" else extract_skills(jd_text)
+    role_scores = {}
+    for role, skills in ROLE_SKILLS.items():
+        role_scores[role] = len(resume_skills & skills)
 
+    best_fit_role = max(role_scores, key=role_scores.get)
+    display_role = target_role if target_role else best_fit_role
+
+    required_skills = ROLE_SKILLS[display_role]
     matched = resume_skills & required_skills
     missing = required_skills - resume_skills
 
-    ats_score = int((len(matched) / max(len(required_skills),1)) * 100)
+    ats_score = int((len(matched) / max(len(required_skills), 1)) * 100)
 
     # ---------------- METRICS ----------------
-    c1,c2,c3 = st.columns(3)
+    c1, c2, c3 = st.columns(3)
     c1.metric("🎯 ATS Readiness", f"{ats_score}%")
     c2.metric("💚 Skills Matched", len(matched))
     c3.metric("🌱 Skills Missing", len(missing))
 
     # ---------------- ROLE FIT ----------------
     st.subheader("🏆 Job Roles That Fit You Best")
-    for role,skills in ROLE_SKILLS.items():
-        score = int((len(resume_skills & skills)/len(skills))*100)
-        st.write(f"**{role}** — {score}% match")
+    for role, score in sorted(role_scores.items(), key=lambda x: -x[1]):
+        percent = int((score / len(ROLE_SKILLS[role])) * 100)
+        st.write(f"**{role}** — {percent}% match")
 
-    # ---------------- SKILLS TABLE ----------------
+    # ---------------- SKILLS ----------------
     st.subheader("🧩 Skill Match & Gaps")
-    col1,col2 = st.columns(2)
+    col1, col2 = st.columns(2)
     with col1:
         st.success("💚 Strengths")
         for s in matched:
@@ -129,116 +123,69 @@ if resume_file:
     # ---------------- LEARNING ----------------
     st.subheader("📚 Learning Roadmap")
     for s in missing:
-        st.write(f"📘 **{s.title()}** → {LEARNING_RESOURCES.get(s)}")
+        st.write(f"📘 **{s.title()}** → {LEARNING_RESOURCES[s]}")
 
     # ---------------- INTERVIEW ----------------
     st.subheader("🎤 Interview Talking Points")
     for s in matched:
         st.write(f"• I have hands-on experience with **{s}** through academic and personal projects.")
-    if missing:
-        st.write("• I am actively strengthening my missing skills to become industry-ready.")
+    st.write("• I am actively strengthening missing skills to become industry-ready.")
 
     # ---------------- LINKEDIN ----------------
     st.subheader("💼 LinkedIn About")
     linkedin = (
-        f"Aspiring {target_role} with hands-on experience in "
-        + ", ".join(matched)
-        + ". Actively building strong foundations and real-world skills."
+        f"Aspiring {display_role} with hands-on experience in "
+        f"{', '.join(matched)}. Actively building strong foundations and real-world skills."
     )
     st.code(linkedin)
 
-    # =====================================================================
-    # ✅ ONLY FIXED SECTION: BEAUTIFUL RESUME (DOCX + PDF)
-    # =====================================================================
-
-    # -------- DOCX --------
+    # ---------------- DOCX RESUME ----------------
     doc = Document()
+    doc.add_heading(name.upper(), 0).alignment = 1
+    doc.add_paragraph(display_role).alignment = 1
 
-    name_h = doc.add_heading(name.upper(), 0)
-    name_h.alignment = 1
-
-    role_p = doc.add_paragraph(target_role)
-    role_p.alignment = 1
-
-    doc.add_paragraph()
-
-    doc.add_heading("PROFESSIONAL SUMMARY", level=1)
+    doc.add_heading("Professional Summary", 1)
     doc.add_paragraph(
-        f"Motivated student aspiring {target_role} with hands-on experience in "
-        f"{', '.join(matched)}. Actively learning {', '.join(missing)}."
+        f"Motivated student aspiring {display_role} with hands-on experience in "
+        f"{', '.join(matched)}."
     )
 
-    doc.add_heading("TECHNICAL SKILLS", level=1)
+    doc.add_heading("Technical Skills", 1)
     doc.add_paragraph(", ".join(resume_skills))
 
-    doc.add_heading("PROJECT EXPERIENCE", level=1)
-    doc.add_paragraph(
-        "• Academic and personal projects applying programming, problem-solving, and debugging skills."
-    )
-
-    doc.add_heading("LEARNING FOCUS", level=1)
+    doc.add_heading("Learning Focus", 1)
     for s in missing:
         doc.add_paragraph(f"• {s.title()}")
 
     tmp_docx = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
     doc.save(tmp_docx.name)
+    st.download_button("⬇ Download Resume (DOCX)", open(tmp_docx.name, "rb"), "CareerCraft_Resume.docx")
 
-    st.download_button("⬇ Download Resume (DOCX)",
-                       open(tmp_docx.name,"rb"),
-                       file_name="CareerCraft_Resume.docx")
-
-    # -------- PDF --------
+    # ---------------- PDF RESUME ----------------
     tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     styles = getSampleStyleSheet()
     pdf = SimpleDocTemplate(tmp_pdf.name, pagesize=A4, rightMargin=40, leftMargin=40)
 
-    elements = []
-    elements.append(Paragraph(f"<b><font size=18>{name}</font></b>", styles["Title"]))
-    elements.append(Paragraph(target_role, styles["Normal"]))
-    elements.append(Spacer(1, 15))
-
-    elements.append(Paragraph("<b>PROFESSIONAL SUMMARY</b>", styles["Heading2"]))
-    elements.append(Paragraph(
-        f"Motivated student aspiring {target_role} with hands-on experience in "
-        f"{', '.join(matched)} and actively learning {', '.join(missing)}.",
-        styles["Normal"]
-    ))
-
-    elements.append(Spacer(1, 12))
-    elements.append(Paragraph("<b>TECHNICAL SKILLS</b>", styles["Heading2"]))
-    elements.append(Paragraph(", ".join(resume_skills), styles["Normal"]))
-
-    elements.append(Spacer(1, 12))
-    elements.append(Paragraph("<b>PROJECT EXPERIENCE</b>", styles["Heading2"]))
-    elements.append(Paragraph(
-        "Academic and personal projects applying programming, debugging, and problem-solving skills.",
-        styles["Normal"]
-    ))
-
-    elements.append(Spacer(1, 12))
-    elements.append(Paragraph("<b>LEARNING FOCUS</b>", styles["Heading2"]))
-    elements.append(ListFlowable(
-        [ListItem(Paragraph(s.title(), styles["Normal"])) for s in missing],
-        bulletType="bullet"
-    ))
+    elements = [
+        Paragraph(f"<b><font size=18>{name}</font></b>", styles["Title"]),
+        Paragraph(display_role, styles["Normal"]),
+        Spacer(1, 12),
+        Paragraph("<b>Professional Summary</b>", styles["Heading2"]),
+        Paragraph(
+            f"Motivated student aspiring {display_role} with hands-on experience in "
+            f"{', '.join(matched)}.",
+            styles["Normal"]
+        ),
+        Spacer(1, 12),
+        Paragraph("<b>Technical Skills</b>", styles["Heading2"]),
+        Paragraph(", ".join(resume_skills), styles["Normal"]),
+        Spacer(1, 12),
+        Paragraph("<b>Learning Focus</b>", styles["Heading2"]),
+        ListFlowable(
+            [ListItem(Paragraph(s.title(), styles["Normal"])) for s in missing],
+            bulletType="bullet"
+        )
+    ]
 
     pdf.build(elements)
-
-    st.download_button("⬇ Download Resume (PDF)",
-                       open(tmp_pdf.name,"rb"),
-                       file_name="CareerCraft_Resume.pdf")
-
-    # ---------------- COVER LETTER ----------------
-    st.subheader("✉ Premium Cover Letter")
-    cover = f"""
-Dear Hiring Manager,
-
-I am applying for the {target_role} role. I bring hands-on experience in {", ".join(matched)}
-and am actively strengthening my skills in {", ".join(missing)}.
-
-I am eager to learn, contribute, and grow within your organization.
-
-Sincerely,
-{name}
-"""
-    st.text_area("", cover, height=220)
+    st.download_button("⬇ Download Resume (PDF)", open(tmp_pdf.name, "rb"), "CareerCraft_Resume.pdf")
