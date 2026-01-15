@@ -7,12 +7,10 @@ import plotly.express as px
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 import re
-import tempfile
-import os
+import io  # FIXED: Added io for in-memory file handling
 
 # ---------------- 1. PAGE CONFIGURATION ----------------
 st.set_page_config(
@@ -22,18 +20,15 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for a professional look
+# Custom CSS
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
     .stButton>button { width: 100%; border-radius: 5px; }
-    .metric-card { background-color: white; padding: 20px; border-radius: 10px; box-shadow: 2px 2px 10px rgba(0,0,0,0.1); text-align: center; }
-    h1, h2, h3 { color: #2c3e50; }
     </style>
     """, unsafe_allow_html=True)
 
-# ---------------- 2. KNOWLEDGE BASE (DATABASE) ----------------
-# Comprehensive skill mapping for detection
+# ---------------- 2. KNOWLEDGE BASE ----------------
 SKILL_DB = {
     "Programming": ["python", "java", "c++", "c", "javascript", "typescript", "ruby", "swift", "go", "php"],
     "Web Frameworks": ["react", "angular", "vue", "django", "flask", "spring boot", "node.js", "express", "fastapi"],
@@ -44,7 +39,6 @@ SKILL_DB = {
     "Soft Skills": ["communication", "leadership", "problem solving", "teamwork", "time management", "critical thinking"]
 }
 
-# Role definitions for "Preset" mode and "Role Fit" analysis
 ROLES_DB = {
     "Software Engineer": ["python", "java", "c++", "git", "sql", "problem solving", "data structures", "algorithms"],
     "Data Scientist": ["python", "machine learning", "statistics", "sql", "pandas", "numpy", "tensorflow", "data visualization"],
@@ -54,7 +48,6 @@ ROLES_DB = {
     "Product Manager": ["communication", "jira", "roadmap", "agile", "scrum", "analytics", "user research"]
 }
 
-# Learning Resources Map
 LEARNING_LINKS = {
     "python": "https://www.coursera.org/specializations/python",
     "java": "https://www.udemy.com/topic/java/",
@@ -70,7 +63,6 @@ LEARNING_LINKS = {
 # ---------------- 3. HELPER FUNCTIONS ----------------
 
 def extract_text_from_file(uploaded_file):
-    """Extracts text from PDF or DOCX."""
     text = ""
     try:
         if uploaded_file.name.endswith('.pdf'):
@@ -86,60 +78,59 @@ def extract_text_from_file(uploaded_file):
     return text.lower()
 
 def clean_text(text):
-    """Cleans text for NLP processing."""
     text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
     return text
 
 def extract_skills_from_text(text):
-    """Matches text against the SKILL_DB."""
     found_skills = set()
     for category, skills in SKILL_DB.items():
         for skill in skills:
-            # Regex to find exact word matches (avoids matching 'java' in 'javascript')
             if re.search(r'\b' + re.escape(skill) + r'\b', text):
                 found_skills.add(skill)
     return found_skills
 
 def calculate_ai_match(resume_text, jd_text):
-    """Uses TF-IDF and Cosine Similarity for a 'Smart' match score."""
     documents = [resume_text, jd_text]
     tfidf = TfidfVectorizer(stop_words='english')
     tfidf_matrix = tfidf.fit_transform(documents)
     similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])
     return round(similarity[0][0] * 100, 2)
 
-def generate_pdf_report(title, content_dict, filename):
-    """Generates a professional PDF using ReportLab."""
-    tfile = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    doc = SimpleDocTemplate(tfile.name, pagesize=letter)
-    styles = getSampleStyleSheet()
-    elements = []
+def create_pdf_bytes(title, content_dict):
+    """FIXED: Generates PDF in memory (BytesIO) instead of temp file."""
+    try:
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        styles = getSampleStyleSheet()
+        elements = []
 
-    # Title
-    elements.append(Paragraph(title, styles['Title']))
-    elements.append(Spacer(1, 12))
-
-    # Content Loop
-    for section, text in content_dict.items():
-        elements.append(Paragraph(f"<b>{section}</b>", styles['Heading2']))
-        elements.append(Spacer(1, 6))
-        # Handle list or string
-        if isinstance(text, list):
-            for item in text:
-                elements.append(Paragraph(f"• {item}", styles['Normal']))
-        else:
-            elements.append(Paragraph(text, styles['Normal']))
+        # Title
+        elements.append(Paragraph(title, styles['Title']))
         elements.append(Spacer(1, 12))
 
-    doc.build(elements)
-    return tfile.name
+        # Content
+        for section, text in content_dict.items():
+            elements.append(Paragraph(f"<b>{section}</b>", styles['Heading2']))
+            elements.append(Spacer(1, 6))
+            if isinstance(text, list):
+                for item in text:
+                    elements.append(Paragraph(f"• {item}", styles['Normal']))
+            else:
+                elements.append(Paragraph(str(text), styles['Normal']))
+            elements.append(Spacer(1, 12))
+
+        doc.build(elements)
+        buffer.seek(0)
+        return buffer
+    except Exception as e:
+        st.error(f"Error generating PDF: {e}")
+        return None
 
 # ---------------- 4. MAIN APP LAYOUT ----------------
 
 def main():
-    # Sidebar: Inputs
+    # Sidebar
     with st.sidebar:
-        st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=80)
         st.title("CareerCraft AI")
         st.markdown("### 1️⃣ Resume Understanding")
         uploaded_file = st.file_uploader("Upload Resume (PDF/DOCX)", type=["pdf", "docx"])
@@ -154,182 +145,118 @@ def main():
             target_role = st.selectbox("Choose Role", list(ROLES_DB.keys()))
             jd_text = " ".join(ROLES_DB[target_role])
         else:
-            target_role = st.text_input("Enter Role Name (e.g., Python Dev)")
-            jd_text = st.text_area("Paste Job Description Here")
+            target_role = st.text_input("Enter Role Name")
+            jd_text = st.text_area("Paste Job Description")
 
         user_name = st.text_input("Your Name", "Candidate")
         
+        # We only need one main button for analysis
         analyze_btn = st.button("🚀 Analyze Career Path")
 
-    # Main Dashboard
+    # Main Logic
     if analyze_btn and uploaded_file and jd_text:
-        # --- PROCESSING ---
-        with st.spinner("Analyzing profile against industry standards..."):
+        # ANALYSIS
+        with st.spinner("Analyzing..."):
             resume_text = extract_text_from_file(uploaded_file)
             resume_skills = extract_skills_from_text(resume_text)
             jd_skills = extract_skills_from_text(jd_text.lower())
             
-            # Match Logic
             matched_skills = resume_skills.intersection(jd_skills)
             missing_skills = jd_skills.difference(resume_skills)
             
-            # Scores
             keyword_score = round((len(matched_skills) / len(jd_skills)) * 100) if jd_skills else 0
             ai_score = calculate_ai_match(resume_text, jd_text)
-            
-            # Weighted Final Score (60% Keyword, 40% AI Context)
             final_score = int((keyword_score * 0.6) + (ai_score * 0.4))
 
-        # --- HEADER ---
+        # --- DISPLAY RESULTS ---
         st.title(f"👋 Hello, {user_name}!")
         st.subheader(f"Targeting: {target_role}")
         st.markdown("---")
 
-        # --- 3️⃣ ATS READINESS & SCORING ---
+        # 1. Gauge Chart
         col1, col2 = st.columns([1, 2])
-        
         with col1:
-            st.markdown("### 🎯 ATS Readiness Score")
+            st.markdown("### 🎯 ATS Score")
             fig = go.Figure(go.Indicator(
                 mode = "gauge+number",
                 value = final_score,
                 domain = {'x': [0, 1], 'y': [0, 1]},
-                title = {'text': "Match %"},
-                gauge = {
-                    'axis': {'range': [None, 100]},
-                    'bar': {'color': "#2ecc71" if final_score > 70 else "#f1c40f" if final_score > 40 else "#e74c3c"},
-                    'steps': [
-                        {'range': [0, 40], 'color': "lightgray"},
-                        {'range': [40, 70], 'color': "gray"}],
-                }
+                gauge = {'axis': {'range': [None, 100]}, 'bar': {'color': "#2ecc71" if final_score > 70 else "#f1c40f"}}
             ))
-            fig.update_layout(height=300, margin=dict(l=20, r=20, t=50, b=20))
+            fig.update_layout(height=250, margin=dict(l=10, r=10, t=30, b=10))
             st.plotly_chart(fig, use_container_width=True)
-            
-            if final_score >= 80:
-                st.success("✅ **Ready to Apply!** Your profile is strong.")
-            elif final_score >= 50:
-                st.warning("⚠️ **Needs Improvement.** Focus on the missing skills below.")
-            else:
-                st.error("❌ **Not a Match.** Consider learning basics or pivoting roles.")
 
         with col2:
-            st.markdown("### 🧠 Recruiter's Verdict (Simulated)")
-            st.info(f"""
-            **Assessment:** Based on the analysis, you cover **{len(matched_skills)} out of {len(jd_skills)}** critical skills required for this role. 
-            The AI context match is **{ai_score}%**, indicating your resume vocabulary { "aligns well" if ai_score > 50 else "needs more industry-specific keywords"}.
-            
-            **Recommendation:**
-            {"You are a top-tier candidate." if final_score > 75 else "You are a potential fit but need to highlight specific projects." if final_score > 50 else "Significantly upgrade your technical stack before applying."}
-            """)
-            
-            # 5️⃣ JOB ROLE FIT (Radar Chart)
-            st.markdown("### 🏆 Role Fit Analysis")
-            # Calculate match for ALL preset roles to show alternatives
-            role_scores = {}
-            for role, skills in ROLES_DB.items():
-                r_skills = set(skills)
-                match = len(resume_skills.intersection(r_skills))
-                total = len(r_skills)
-                role_scores[role] = (match / total) * 100
-
-            df_radar = pd.DataFrame(dict(
-                r=list(role_scores.values()),
-                theta=list(role_scores.keys())
-            ))
-            fig_radar = px.line_polar(df_radar, r='r', theta='theta', line_close=True, range_r=[0,100])
-            fig_radar.update_traces(fill='toself')
-            st.plotly_chart(fig_radar, use_container_width=True)
+            st.markdown("### 🧠 Feedback")
+            st.info(f"You matched **{len(matched_skills)}** key skills. Your AI relevance score is **{ai_score}%**.")
+            st.write(f"**Missing Critical Skills:** {', '.join(list(missing_skills)[:5]) if missing_skills else 'None!'}")
 
         st.markdown("---")
 
-        # --- 4️⃣ SKILL GAP ANALYSIS ---
+        # 2. Skill Gap
         c1, c2 = st.columns(2)
         with c1:
-            st.subheader("💚 Matched Skills (Keep These)")
-            if matched_skills:
-                st.write(", ".join([f"`{s}`" for s in matched_skills]))
-            else:
-                st.write("No direct matches found.")
-        
+            st.subheader("✅ Matched Skills")
+            st.success(", ".join(matched_skills) if matched_skills else "No matches found.")
         with c2:
-            st.subheader("🌱 Missing Skills (Focus Here)")
-            if missing_skills:
-                for s in missing_skills:
-                    st.error(f"❌ {s}")
-            else:
-                st.write("No critical skills missing!")
+            st.subheader("⚠️ Skills to Learn")
+            st.warning(", ".join(missing_skills) if missing_skills else "All clear!")
 
-        # --- 6️⃣ LEARNING ROADMAP ---
-        st.subheader("📚 Personalized Learning Roadmap")
-        with st.expander("View Learning Resources for Missing Skills", expanded=True):
-            found_resource = False
-            for s in missing_skills:
+        # 3. Learning Roadmap
+        if missing_skills:
+            st.markdown("### 📚 Recommended Learning")
+            for s in list(missing_skills)[:5]:
                 if s in LEARNING_LINKS:
-                    st.write(f"📘 **{s.title()}**: [Start Learning]({LEARNING_LINKS[s]})")
-                    found_resource = True
-            if not found_resource:
-                st.write("Use generic platforms like Udemy, Coursera, or YouTube for these specific niche skills.")
+                    st.write(f"- 🔗 **Learn {s.title()}:** [Click Here]({LEARNING_LINKS[s]})")
 
         st.markdown("---")
 
-        # --- 7️⃣ INTERVIEW & LINKEDIN ---
-        col3, col4 = st.columns(2)
-        
-        with col3:
-            st.subheader("🎤 Interview Talking Points")
-            st.caption("Use these to answer: 'Tell me about your strengths'")
-            for s in list(matched_skills)[:5]:
-                st.write(f"✅ *'I have applied {s} in various projects to solve real-world problems.'*")
-            st.write(f"🚀 *'I am currently upskilling in {', '.join(list(missing_skills)[:3])} to minimize the gap.'*")
-
-        with col4:
-            st.subheader("💼 LinkedIn About Section")
-            st.caption("Copy-paste this to your profile")
-            linkedin_bio = (
-                f"🚀 Aspiring {target_role} | Tech Enthusiast\n\n"
-                f"Passionate about leveraging technology to solve problems. "
-                f"Skilled in {', '.join(list(matched_skills)[:5])}. "
-                f"Currently expanding my expertise in {', '.join(list(missing_skills)[:3])} to drive impact in the {target_role} domain.\n\n"
-                f"Open to opportunities where I can apply my skills in {list(matched_skills)[0] if matched_skills else 'tech'} and grow as a developer."
-            )
-            st.code(linkedin_bio, language='text')
-
-        # --- 10 & 11 GENERATORS ---
-        st.markdown("---")
+        # 4. EXPORT SECTION (FIXED)
         st.subheader("📄 Export Career Assets")
+        c3, c4 = st.columns(2)
         
-        c5, c6 = st.columns(2)
+        # Resume Data
+        resume_data = {
+            "Name": user_name,
+            "Role": target_role,
+            "Summary": f"Aspiring {target_role} with skills in {', '.join(list(matched_skills)[:5])}.",
+            "Skills": ", ".join(resume_skills),
+            "Missing Skills (To Add Later)": ", ".join(missing_skills)
+        }
         
-        with c5:
-            # Resume Generation
-            resume_content = {
-                "Profile Summary": f"Motivated {target_role} with a strong foundation in {', '.join(list(matched_skills)[:4])}. Eager to contribute to innovative projects.",
-                "Technical Skills": ", ".join(resume_skills),
-                "Project Focus": f"Ready to work on {target_role} projects utilizing {list(matched_skills)[0] if matched_skills else 'modern tech'}.",
-                "Declaration": "I hereby declare that the above information is true to the best of my knowledge."
-            }
-            if st.button("Generate Optimized Resume"):
-                pdf_path = generate_pdf_report(f"{user_name} - Resume", resume_content, "resume.pdf")
-                with open(pdf_path, "rb") as f:
-                    st.download_button("⬇ Download Resume PDF", f, file_name=f"{user_name}_Resume.pdf")
+        # Cover Letter Data
+        cl_data = {
+            "Subject": f"Application for {target_role}",
+            "Salutation": "Dear Hiring Manager,",
+            "Body": f"I am excited to apply for the {target_role} position. With experience in {', '.join(list(matched_skills)[:3])}, I believe I am a strong fit.",
+            "Closing": "Sincerely,",
+            "Signature": user_name
+        }
 
-        with c6:
-            # Cover Letter Generation
-            cl_content = {
-                "Salutation": "Dear Hiring Manager,",
-                "Opening": f"I am writing to express my enthusiastic interest in the {target_role} position.",
-                "Body": f"With a solid grounding in {', '.join(list(matched_skills)[:3])}, I am confident in my ability to contribute effectively. My analysis shows a {final_score}% match with your requirements, and I am actively closing gaps in {', '.join(list(missing_skills)[:2])}.",
-                "Closing": "Thank you for considering my application. I look forward to discussing how my skills align with your team's needs.",
-                "Sign-off": f"Sincerely,\n{user_name}"
-            }
-            if st.button("Generate Cover Letter"):
-                pdf_path = generate_pdf_report("Cover Letter", cl_content, "cover_letter.pdf")
-                with open(pdf_path, "rb") as f:
-                    st.download_button("⬇ Download Cover Letter PDF", f, file_name=f"{user_name}_Cover_Letter.pdf")
+        with c3:
+            # FIXED: Direct generation inside the download button
+            resume_pdf = create_pdf_bytes(f"{user_name} - Resume", resume_data)
+            if resume_pdf:
+                st.download_button(
+                    label="⬇ Download Optimized Resume",
+                    data=resume_pdf,
+                    file_name="Optimized_Resume.pdf",
+                    mime="application/pdf"
+                )
+
+        with c4:
+            # FIXED: Direct generation inside the download button
+            cl_pdf = create_pdf_bytes("Cover Letter", cl_data)
+            if cl_pdf:
+                st.download_button(
+                    label="⬇ Download Cover Letter",
+                    data=cl_pdf,
+                    file_name="Cover_Letter.pdf",
+                    mime="application/pdf"
+                )
 
     elif analyze_btn:
-        st.warning("⚠️ Please upload a resume and provide a job description.")
+        st.error("Please upload a resume and select a job role first!")
 
 if __name__ == "__main__":
     main()
