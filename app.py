@@ -10,8 +10,8 @@ import random
 
 # ---------------- 1. PAGE CONFIGURATION ----------------
 st.set_page_config(
-    page_title="CareerCraft AI - Platinum",
-    page_icon="🚀",
+    page_title="CareerCraft AI - Diamond",
+    page_icon="💎",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -44,10 +44,11 @@ st.markdown("""
         border-radius: 6px; font-size: 0.9em; font-weight: 600; margin-right: 5px; display: inline-block; margin-bottom: 5px;
     }
     
-    /* Fix Text Wrapping in Expanders/Info Boxes */
+    /* FIXED: Tooltip & Text Wrapping Logic */
     .streamlit-expanderContent div {
         word-wrap: break-word;
         white-space: normal;
+        line-height: 1.6;
     }
     .stAlert {
         word-wrap: break-word;
@@ -65,9 +66,11 @@ SKILL_DB = {
     "Data": ["pandas", "numpy", "scikit-learn", "tensorflow", "pytorch", "tableau", "power bi", "excel", "spark"]
 }
 
-# MICRO-PROJECT BLUEPRINTS (Fixed: No Lazy AI)
+# MICRO-PROJECT BLUEPRINTS (The "Platinum" Standard)
 PROJECT_BLUEPRINTS = {
     "react": {"title": "Trello Clone (Kanban)", "task": "Build a Drag-and-Drop Task Board using **React DnD** and **Redux Toolkit**."},
+    "next.js": {"title": "SSR Blog Platform", "task": "Build a Server-Side Rendered (SSR) Blog that fetches data at build time using **getStaticProps**."},
+    "jest": {"title": "Login Validator Tests", "task": "Write a test suite for a Login Form Validator, achieving **100% code coverage** for valid/invalid email inputs."},
     "spring boot": {"title": "Bookstore REST API", "task": "Build a comprehensive API with CRUD operations, connecting to a local **H2 Database** and handling exceptions."},
     "typescript": {"title": "Strictly Typed Calculator", "task": "Convert a JS Calculator to **TypeScript**, enforcing strict types on all event handlers."},
     "figma": {"title": "Dark Mode Dashboard UI", "task": "Design a 'Login & Dashboard' UI kit (Dark Mode) demonstrating **Component Variants** and **Auto-Layout**."},
@@ -77,13 +80,15 @@ PROJECT_BLUEPRINTS = {
     "docker": {"title": "Microservice Dockerfile", "task": "Write a multi-stage **Dockerfile** for a Python app to reduce image size by 40%."},
     "git": {"title": "Simulate Merge Conflict", "task": "Create two branches, edit the same line in both, and resolve the conflict using **Git CLI**."},
     "redux": {"title": "Shopping Cart State", "task": "Implement a global Shopping Cart using **Redux**, handling add/remove actions."},
-    "java": {"title": "Library Management System", "task": "Build a console-based app using **OOP Principles** (Inheritance, Polymorphism) to manage book inventory."}
+    "html": {"title": "Accessible Landing Page", "task": "Refactor a `div`-heavy page into **Semantic HTML** (<nav>, <article>, <main>) to score 100 on Lighthouse."}
 }
 
-# DYNAMIC INTERVIEW QUESTIONS (Fixed: Deep Technical Dives)
+# DYNAMIC INTERVIEW QUESTIONS (The "Grill" - No Softballs)
 INTERVIEW_Q = {
     "react": "Recruiter: I see you built a Trello Clone. How did you optimize rendering to prevent lag when dragging items? Did you use `React.memo`?",
-    "spring boot": "Recruiter: You mentioned using Spring Boot. How did you handle **Dependency Injection** for your Service and Repository layers? Why use Constructor Injection over Field Injection?",
+    "next.js": "Recruiter: Why did you choose **SSR (Server-Side Rendering)** over Client-Side Rendering for this blog? How does it specifically impact SEO?",
+    "jest": "Recruiter: In your Login Form tests, how did you **mock the API submission**? Explain the difference between `shallow` and `mount` rendering.",
+    "spring boot": "Recruiter: You mentioned using Spring Boot. How did you handle **Dependency Injection** for your Service and Repository layers? Why use Constructor Injection?",
     "typescript": "Recruiter: You migrated to TypeScript. What specific bugs did strict typing catch that you missed in JS? How did you handle `any` types?",
     "figma": "Recruiter: Walk me through your Dark Mode system. How did you handle color tokens for accessibility to ensure sufficient contrast?",
     "python": "Recruiter: In your Crypto Tracker, how would you handle a sudden API rate limit error without crashing the script?",
@@ -91,12 +96,14 @@ INTERVIEW_Q = {
     "aws": "Recruiter: Since you used **AWS Lambda**, how did you manage **Cold Starts**, and why did you choose API Gateway over a Load Balancer?",
     "docker": "Recruiter: You reduced image size by 40%. Did you use **Alpine Linux** images? What were the security trade-offs of that decision?",
     "git": "Recruiter: Explain a situation where you chose 'Git Rebase' over 'Git Merge'. How did you handle the history rewrite safety?",
-    "java": "Recruiter: In your Library System, how did you handle concurrent borrowing? Did you use the `synchronized` keyword or `ConcurrentHashMap`?"
+    "html": "Recruiter: Explain the importance of **Semantic HTML** (like `<article>` vs `<div>`) for accessibility and screen readers."
 }
 
-# RESUME BULLETS (The "Reward")
+# RESUME BULLETS (The Reward)
 RESUME_BULLETS = {
     "react": "• Architected a Trello-style Kanban board using **React**, utilizing **Redux** for state management of 50+ tasks.",
+    "next.js": "• Engineered a Server-Side Rendered (SSR) blog using **Next.js**, improving SEO indexing and First Contentful Paint (FCP) by 40%.",
+    "jest": "• Implemented Unit Testing suites using **Jest**, achieving 100% code coverage for critical authentication modules.",
     "spring boot": "• Developed a scalable **RESTful API** for a Bookstore using **Spring Boot**, implementing **H2** persistence and custom error handling.",
     "typescript": "• Refactored a legacy codebase to **TypeScript**, reducing runtime type errors by 90% through strict typing.",
     "figma": "• Designed a scalable Dark Mode UI System in **Figma**, utilizing Auto-Layout and Variants to speed up dev handoff.",
@@ -129,12 +136,10 @@ def extract_skills(text):
     return found
 
 def calculate_metrics(resume_text, jd_text, r_skills, j_skills):
-    if not j_skills: return 0, 0, 15 # Floor context score at 15
+    if not j_skills: return 0, 0, 15 
     
-    # Keyword Score
     k_score = int((len(r_skills.intersection(j_skills)) / len(j_skills)) * 100)
     
-    # Context Score
     tfidf = TfidfVectorizer(stop_words='english')
     try:
         matrix = tfidf.fit_transform([resume_text, jd_text])
@@ -142,7 +147,6 @@ def calculate_metrics(resume_text, jd_text, r_skills, j_skills):
     except:
         raw_c_score = 0
         
-    # LOGIC FIX: Floor the Context Score at 15% (Psychological Safety)
     c_score = max(raw_c_score, 15)
         
     final = int((k_score * 0.6) + (c_score * 0.4))
@@ -151,17 +155,16 @@ def calculate_metrics(resume_text, jd_text, r_skills, j_skills):
 # ---------------- 4. MAIN APP ----------------
 
 def main():
-    # --- SESSION STATE ---
     if 'analyzed' not in st.session_state:
         st.session_state['analyzed'] = False
         st.session_state['completed_projects'] = set()
-        st.session_state['readiness_score'] = 25 # Start with some hope
+        st.session_state['readiness_score'] = 25 
         
     # --- SIDEBAR ---
     with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=50)
         st.title("CareerCraft AI")
-        st.caption("Platinum Edition v5.0")
+        st.caption("Diamond Edition v6.0")
         
         uploaded_file = st.file_uploader("1. Upload Resume", type=["pdf", "docx"])
         
@@ -170,7 +173,7 @@ def main():
         role_title = "General"
 
         if target_mode == "Paste JD (Recommended)":
-            role_title = st.text_input("Job Title", "Senior Software Engineer")
+            role_title = st.text_input("Job Title", "Frontend Engineer")
             jd_text = st.text_area("Paste JD Here")
         else:
             role_title = st.selectbox("Select Role", ["Frontend Developer", "Backend Developer", "Data Scientist"])
@@ -209,7 +212,6 @@ def main():
         # 1. HERO & GAMIFICATION
         st.title(f"🔍 Analysis: {st.session_state['role_title']}")
         
-        # Gamified Progress Bar
         st.caption("🎓 Interview Readiness Level")
         st.progress(st.session_state['readiness_score'] / 100)
         st.markdown(f"**Level: {st.session_state['readiness_score']}%** (Build projects to level up!)")
@@ -229,14 +231,14 @@ def main():
                 st.success("✅ No Keywords Missing!")
         with c3:
             st.metric("Context Score", f"{c_score}%")
-            # PEEK-A-BOO REWRITE (With CSS Text Wrap Fix)
+            # PEEK-A-BOO REWRITE (Fixed Wrapping)
             with st.expander("✨ Peek at Magic Rewrite"):
                 st.info(f"**Instead of:** 'Used {list(matched)[0] if matched else 'Java'}'")
                 st.success(f"**Write this:** 'Leveraged **{list(matched)[0] if matched else 'Java'}** to architect scalable solutions, improving system latency by 30%.'")
 
         st.markdown("---")
 
-        # 3. MICRO-PROJECT BLUEPRINTS (Fixed: No Lazy AI)
+        # 3. MICRO-PROJECT BLUEPRINTS (High Quality Only)
         col_L, col_R = st.columns([1, 1.2])
 
         with col_L:
@@ -263,7 +265,6 @@ def main():
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        # "I BUILT IT" LOOP
                         btn_label = "✅ I Built It! (Unlock Rewards)"
                         if skill in st.session_state['completed_projects']:
                             btn_label = "🎉 Completed!"
@@ -283,7 +284,7 @@ def main():
 
         st.markdown("---")
 
-        # 4. THE DYNAMIC INTERVIEW GRILL (Fixed: Specific Questions)
+        # 4. THE DYNAMIC INTERVIEW GRILL (Platinum Standard)
         st.subheader("🔥 The Interview Grill")
         
         tab1, tab2 = st.tabs(["🔥 Hot Seat (Dynamic)", "📄 Cover Letter"])
@@ -294,7 +295,7 @@ def main():
             if matched:
                 st.markdown("**Based on your current resume:**")
                 for s in list(matched)[:2]:
-                     q = INTERVIEW_Q.get(s, f"Tell me about your experience with {s}.")
+                     q = INTERVIEW_Q.get(s, f"Recruiter: Explain the core concepts of {s} and how you applied them.")
                      st.info(f"**{s.title()}:** {q}")
 
             if st.session_state['completed_projects']:
