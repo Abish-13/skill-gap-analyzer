@@ -1,219 +1,201 @@
 import streamlit as st
 import pdfplumber
+import re
+from collections import Counter
 from docx import Document
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
-import tempfile, re
+import tempfile
 
-# ---------------- CONFIG ----------------
-st.set_page_config(page_title="CareerCraft AI", page_icon="✨", layout="wide")
+# ---------------- UI ----------------
+st.set_page_config(page_title="CareerCraft AI", layout="wide")
 
-# ---------------- STYLES ----------------
 st.markdown("""
 <style>
-body { background:#f8fafc; }
-.card {
-    background:white;
-    padding:1.6rem;
-    border-radius:18px;
-    box-shadow:0 12px 32px rgba(0,0,0,0.08);
-    margin-bottom:1.4rem;
-}
-.badge {
-    display:inline-block;
-    padding:6px 14px;
-    border-radius:999px;
-    background:linear-gradient(135deg,#22c55e,#16a34a);
-    color:white;
-    margin:4px;
-    font-size:13px;
-}
-.missing {
-    background:linear-gradient(135deg,#f59e0b,#f97316);
-}
-h1,h2,h3 { color:#0f172a; }
-.small { color:#475569; }
+body { background-color: #f8fbff; }
+h1 { color:#2563eb; }
+.metric { background:#eef2ff; padding:16px; border-radius:12px; text-align:center; }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- DATA ----------------
-ROLE_SKILLS = {
-    "Backend Developer": ["python", "sql", "api", "git", "docker"],
-    "Frontend Developer": ["html", "css", "javascript", "react"],
-    "Data Analyst": ["python", "sql", "excel", "statistics"],
-    "Software Engineer": ["python", "git", "problem solving", "api"]
-}
-
-COURSES = {
-    "sql": "SQL for Data Analysis – Mode Analytics",
-    "docker": "Docker Essentials – IBM",
-    "react": "React Official Docs",
-    "statistics": "Statistics – Khan Academy",
-    "excel": "Excel Skills – Coursera"
-}
-
-# ---------------- FUNCTIONS ----------------
-def extract_text(file):
-    text = ""
-    with pdfplumber.open(file) as pdf:
-        for page in pdf.pages:
-            text += page.extract_text() or ""
-    return text.lower()
-
-def extract_skills(text, skills):
-    return [s for s in skills if re.search(rf"\b{s}\b", text)]
-
-def job_fit_scores(found):
-    scores = {}
-    for role, skills in ROLE_SKILLS.items():
-        scores[role] = int((len(set(found) & set(skills)) / len(skills)) * 100)
-    return sorted(scores.items(), key=lambda x: x[1], reverse=True)
-
-def generate_beautiful_resume_docx(name, role, skills):
-    doc = Document()
-
-    doc.add_heading(name, 0)
-    doc.add_paragraph(f"Aspiring {role} | Entry-Level Candidate")
-
-    doc.add_heading("Professional Summary", level=1)
-    doc.add_paragraph(
-        f"Motivated and detail-oriented student aspiring {role} with hands-on experience in "
-        f"{', '.join(skills)}. Passionate about building real-world solutions, learning continuously, "
-        f"and contributing responsibly in professional environments."
-    )
-
-    doc.add_heading("Core Skills", level=1)
-    doc.add_paragraph(", ".join(skills))
-
-    doc.add_heading("Projects & Practical Experience", level=1)
-    doc.add_paragraph(
-        "• Academic and personal projects demonstrating practical use of technologies\n"
-        "• Experience applying concepts through hands-on problem solving\n"
-        "• Familiarity with collaborative coding practices"
-    )
-
-    doc.add_heading("Learning & Growth", level=1)
-    doc.add_paragraph(
-        "Actively strengthening advanced concepts, production readiness, and industry best practices."
-    )
-
-    return doc
-
-def generate_pdf_resume(name, role, skills):
-    temp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    c = canvas.Canvas(temp.name, pagesize=A4)
-
-    c.setFont("Helvetica-Bold", 20)
-    c.drawString(50, 800, name)
-
-    c.setFont("Helvetica", 12)
-    c.drawString(50, 770, f"Aspiring {role}")
-
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(50, 730, "Professional Summary")
-    c.setFont("Helvetica", 11)
-    c.drawString(50, 710, f"Student with experience in {', '.join(skills)} seeking entry-level opportunities.")
-
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(50, 670, "Skills")
-    c.setFont("Helvetica", 11)
-    c.drawString(50, 650, ", ".join(skills))
-
-    c.save()
-    return temp.name
-
-# ---------------- UI ----------------
 st.title("✨ CareerCraft AI")
 st.caption("Skill gap → learning plan → job-ready")
 
-resume = st.file_uploader("📄 Upload Resume (PDF)", type=["pdf"])
-mode = st.radio("Job Input Mode", ["Preset Role", "Custom JD"])
+# ---------------- SKILL LOGIC ----------------
+STOPWORDS = {
+    "a","an","the","and","or","to","in","of","for","with","as","on","we",
+    "are","is","was","were","be","being","been","such","that","this",
+    "it","they","their","you","your","i"
+}
 
-if mode == "Preset Role":
-    role = st.selectbox("Select Target Role", list(ROLE_SKILLS.keys()))
-    role_skills = ROLE_SKILLS[role]
+VALID_SKILLS = {
+    "python","java","sql","git","github","docker",
+    "data structures","oop","object oriented programming",
+    "debugging","software development","problem solving",
+    "api","backend development","databases"
+}
+
+ROLE_SKILLS = {
+    "Software Engineer": {
+        "python","java","data structures","oop","debugging","git"
+    },
+    "Backend Developer": {
+        "python","java","api","databases","sql","docker","git"
+    },
+    "Data Analyst": {
+        "python","sql","problem solving","databases"
+    }
+}
+
+LEARNING_RESOURCES = {
+    "python":"Python for Everybody – Coursera",
+    "java":"Java Programming – Coursera",
+    "data structures":"DSA – GeeksforGeeks",
+    "oop":"Object-Oriented Programming – Udemy",
+    "object oriented programming":"OOP Concepts – Udemy",
+    "debugging":"Debugging Best Practices – Google",
+    "git":"Git & GitHub – freeCodeCamp",
+    "sql":"SQL for Data Analysis – Mode",
+    "docker":"Docker Essentials – IBM",
+    "api":"REST APIs – freeCodeCamp",
+    "databases":"Database Fundamentals – Coursera"
+}
+
+def clean_text(text):
+    text = text.lower()
+    text = re.sub(r"[^a-z ]"," ",text)
+    return text
+
+def extract_skills(text):
+    text = clean_text(text)
+    found = set()
+    for skill in VALID_SKILLS:
+        if skill in text:
+            found.add(skill)
+    return found
+
+# ---------------- INPUT ----------------
+resume_file = st.file_uploader("📄 Upload Resume (PDF)", type="pdf")
+
+job_mode = st.radio("Job Input Mode", ["Preset Role", "Custom JD"])
+
+target_role = None
+jd_text = ""
+
+if job_mode == "Preset Role":
+    target_role = st.selectbox("Select Role", list(ROLE_SKILLS.keys()))
 else:
-    role = "Target Role"
-    jd = st.text_area("Paste Job Description")
-    role_skills = list(set(re.findall(r"[a-zA-Z]+", jd.lower())))
+    jd_text = st.text_area("Paste Job Description")
 
 name = st.text_input("Your Full Name")
 
-if resume and name and role_skills:
-    text = extract_text(resume)
-    found = extract_skills(text, role_skills)
-    missing = list(set(role_skills) - set(found))
+# ---------------- PROCESS ----------------
+if resume_file:
+    with pdfplumber.open(resume_file) as pdf:
+        resume_text = " ".join(page.extract_text() or "" for page in pdf.pages)
 
-    ats = int((len(found) / len(role_skills)) * 100)
+    resume_skills = extract_skills(resume_text)
 
-    st.subheader("🎯 ATS Readiness")
-    st.success(f"{ats}% match for {role}")
+    if job_mode == "Preset Role":
+        required_skills = ROLE_SKILLS[target_role]
+    else:
+        required_skills = extract_skills(jd_text)
 
-    # -------- BEST FIT ROLES --------
+    matched = resume_skills & required_skills
+    missing = required_skills - resume_skills
+
+    ats_score = int((len(matched) / max(len(required_skills),1)) * 100)
+
+    # ---------------- METRICS ----------------
+    c1,c2,c3 = st.columns(3)
+    c1.metric("🎯 ATS Readiness", f"{ats_score}%")
+    c2.metric("💚 Skills Matched", len(matched))
+    c3.metric("🌱 Skills Missing", len(missing))
+
+    # ---------------- JOB ROLE RECOMMENDATION ----------------
     st.subheader("🏆 Job Roles That Fit You Best")
-    fits = job_fit_scores(found)
-    for r, s in fits[:3]:
-        st.markdown(f"**{r}** — {s}% match")
+    for role,skills in ROLE_SKILLS.items():
+        score = int((len(resume_skills & skills)/len(skills))*100)
+        st.write(f"**{role}** — {score}% match")
 
-    # -------- SKILLS --------
+    # ---------------- TABLE ----------------
     st.subheader("🧩 Skill Match & Gaps")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("<div class='card'><h4>💚 Strengths</h4></div>", unsafe_allow_html=True)
-        for s in found:
-            st.markdown(f"<span class='badge'>{s}</span>", unsafe_allow_html=True)
-    with c2:
-        st.markdown("<div class='card'><h4>🌱 Improve Next</h4></div>", unsafe_allow_html=True)
+    col1,col2 = st.columns(2)
+    with col1:
+        st.success("💚 Strengths")
+        for s in matched:
+            st.write("•", s.title())
+    with col2:
+        st.warning("🌱 Improve Next")
         for s in missing:
-            st.markdown(f"<span class='badge missing'>{s}</span>", unsafe_allow_html=True)
+            st.write("•", s.title())
 
-    # -------- LEARNING --------
+    # ---------------- LEARNING ----------------
     st.subheader("📚 Learning Roadmap")
     for s in missing:
-        st.markdown(f"**{s.upper()}** → {COURSES.get(s,'Industry resources')}")
+        st.write(f"📘 **{s.title()}** → {LEARNING_RESOURCES.get(s,'Industry resources')}")
 
-    # -------- INTERVIEW --------
+    # ---------------- INTERVIEW ----------------
     st.subheader("🎤 Interview Talking Points")
-    for s in found:
-        st.markdown(f"• I have practical experience with **{s}**, aligned with {role} expectations.")
+    for s in matched:
+        st.write(f"• I have hands-on experience with **{s}** through academic and personal projects.")
+    if missing:
+        st.write("• I am actively learning missing skills to become fully industry-ready.")
 
-    # -------- RECRUITER VIEW --------
+    # ---------------- RECRUITER ----------------
     st.subheader("👀 Recruiter View")
-    st.info(f"Strong foundation for {role}. Honest profile with clear growth trajectory.")
+    st.info("Strong fundamentals, honest profile, motivated learner. Good internship/entry-level potential.")
 
-    # -------- LINKEDIN --------
+    # ---------------- LINKEDIN ----------------
     st.subheader("💼 LinkedIn About")
-    st.code(
-        f"Aspiring {role} with hands-on experience in {', '.join(found)}. "
-        f"Focused on building real-world skills and growing professionally."
+    linkedin_text = (
+        f"Aspiring {target_role or 'Software Developer'} with hands-on experience in "
+        + ", ".join(matched)
+        + ". Actively strengthening core technical skills and industry best practices."
     )
+    st.code(linkedin_text)
 
-    # -------- RESUME DOWNLOAD --------
-    st.subheader("📄 Beautiful Resume")
-    doc = generate_beautiful_resume_docx(name, role, found)
-    doc_path = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
-    doc.save(doc_path.name)
+    # ---------------- RESUME DOCX ----------------
+    doc = Document()
+    doc.add_heading(name, 0)
+    doc.add_paragraph(f"Target Role: {target_role}")
+    doc.add_heading("Skills", level=1)
+    doc.add_paragraph(", ".join(resume_skills))
+    doc.add_heading("Career Focus", level=1)
+    doc.add_paragraph("Motivated student building real-world software skills.")
 
-    pdf_path = generate_pdf_resume(name, role, found)
+    tmp_docx = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
+    doc.save(tmp_docx.name)
 
-    c1, c2 = st.columns(2)
-    with c1:
-        st.download_button("⬇ Resume (DOCX)", open(doc_path.name, "rb"), file_name="resume.docx")
-    with c2:
-        st.download_button("⬇ Resume (PDF)", open(pdf_path, "rb"), file_name="resume.pdf")
+    st.download_button("⬇ Download Resume (DOCX)", open(tmp_docx.name,"rb"),
+                       file_name="resume.docx")
 
-    # -------- COVER LETTER --------
+    # ---------------- PDF ----------------
+    tmp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+    c = canvas.Canvas(tmp_pdf.name, pagesize=A4)
+    c.setFont("Helvetica", 11)
+    y = 800
+    c.drawString(50,y,name); y-=30
+    c.drawString(50,y,f"Target Role: {target_role}"); y-=30
+    c.drawString(50,y,"Skills:"); y-=20
+    for s in resume_skills:
+        c.drawString(70,y,f"- {s}"); y-=15
+    c.save()
+
+    st.download_button("⬇ Download Resume (PDF)", open(tmp_pdf.name,"rb"),
+                       file_name="resume.pdf")
+
+    # ---------------- COVER LETTER ----------------
     st.subheader("✉ Premium Cover Letter")
-    st.text_area(
-        "",
-        f"""Dear Hiring Manager,
+    cover = f"""
+Dear Hiring Manager,
 
-I am excited to apply for the {role} position. My experience in {', '.join(found)} has given me a strong foundation, and I am actively strengthening additional skills required for professional excellence.
+I am applying for the {target_role} role. I bring hands-on experience in {", ".join(matched)}
+and am actively strengthening my skills in {", ".join(missing)}.
 
-I bring curiosity, honesty, and a strong willingness to learn. I would love the opportunity to grow and contribute meaningfully within your team.
+I am eager to contribute, learn, and grow within your team.
 
 Sincerely,
 {name}
-""",
-        height=260
-    )
+"""
+    st.text_area("", cover, height=220)
