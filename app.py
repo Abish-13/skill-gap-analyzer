@@ -14,7 +14,7 @@ from reportlab.lib.pagesizes import letter
 
 # ---------------- 1. PAGE CONFIGURATION ----------------
 st.set_page_config(
-    page_title="CareerCraft AI - Recruiter Edition",
+    page_title="CareerCraft AI - Recruiter Pro",
     page_icon="👔",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -145,6 +145,36 @@ def calculate_metrics(resume_text, jd_text, r_skills, j_skills):
     final = int((k_score * 0.6) + (c_score * 0.4))
     return final, k_score, c_score
 
+def analyze_communication_style(resume_text):
+    # Detects passive vs active voice indicators
+    power_words = ["architected", "developed", "led", "optimized", "engineered", "designed", "implemented", "reduced", "increased"]
+    weak_words = ["worked on", "helped", "used", "responsible for", "participated"]
+    
+    score = 50
+    text_lower = resume_text.lower()
+    
+    found_power = [w for w in power_words if w in text_lower]
+    found_weak = [w for w in weak_words if w in text_lower]
+    
+    score += (len(found_power) * 5)
+    score -= (len(found_weak) * 5)
+    
+    if score >= 80: return "🔥 High Impact (Leader)"
+    elif score >= 50: return "✅ Professional (Doer)"
+    else: return "⚠️ Passive (Task-based)"
+
+def get_candidate_archetype(r_skills):
+    # Determines the 'Persona' based on skill clusters
+    fe_count = len(r_skills.intersection(set(SKILL_DB["Frontend"])))
+    be_count = len(r_skills.intersection(set(SKILL_DB["Backend"])))
+    ds_count = len(r_skills.intersection(set(SKILL_DB["Data"])))
+    
+    if fe_count > be_count and fe_count > ds_count: return "🎨 Frontend Specialist"
+    elif be_count > fe_count and be_count > ds_count: return "⚙️ Backend Architect"
+    elif ds_count > fe_count: return "📊 Data Scientist"
+    elif fe_count > 0 and be_count > 0: return "🦄 Full Stack Developer"
+    else: return "🌱 Generalist / Fresher"
+
 def analyze_answer(answer):
     score = 0
     feedback = []
@@ -175,7 +205,6 @@ def generate_cheat_sheet(name, role, skills, bullets):
     c.setFont("Helvetica", 12)
     c.drawString(50, 730, f"Target Role: {role}")
     c.line(50, 720, 550, 720)
-    
     y = 690
     c.setFont("Helvetica-Bold", 14)
     c.drawString(50, y, "1. My Power Hooks")
@@ -184,20 +213,17 @@ def generate_cheat_sheet(name, role, skills, bullets):
     c.drawString(50, y, f"• \"I specialize in {', '.join(list(skills)[:2])} to build scalable apps.\"")
     y -= 20
     c.drawString(50, y, "• \"I focus on performance optimization and clean architecture.\"")
-    
     y -= 40
     c.setFont("Helvetica-Bold", 14)
     c.drawString(50, y, "2. Project Stories (STAR Method)")
     y -= 25
     c.setFont("Helvetica", 10)
-    
     for skill, bullet in list(bullets.items())[:5]:
         text = bullet.replace("**", "")
         c.drawString(50, y, f"[{skill.upper()}]")
         y -= 15
         c.drawString(60, y, text[:90] + "...") 
         y -= 20
-        
     y -= 20
     c.setFont("Helvetica-Bold", 14)
     c.drawString(50, y, "3. Tech Keywords to Drop")
@@ -205,7 +231,6 @@ def generate_cheat_sheet(name, role, skills, bullets):
     c.setFont("Helvetica-Oblique", 12)
     keywords = ["Scalability", "CI/CD Pipeline", "Latency Reduction", "State Management", "Unit Testing"]
     c.drawString(50, y, ", ".join(keywords))
-    
     c.save()
     buffer.seek(0)
     return buffer
@@ -238,11 +263,11 @@ def main():
         st.session_state['completed_projects'] = set()
         st.session_state['readiness_score'] = 25 
         
-    # --- SIDEBAR ---
+    # --- SIDEBAR (MOBILE FRIENDLY) ---
     with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=50)
         st.title("CareerCraft AI")
-        st.caption("Recruiter Edition v12.0")
+        st.caption("Recruiter Edition v13.0")
         
         st.markdown("### 1. Resume Input")
         upload_mode = st.radio("Input Method", ["Upload File", "Paste Text"], horizontal=True, label_visibility="collapsed")
@@ -275,6 +300,7 @@ def main():
 
         if st.button("🚀 Analyze My Fit"):
             if resume_text_content and jd_text:
+                # --- AI THEATRICS ---
                 progress_text = "Initializing AI Agent..."
                 my_bar = st.progress(0, text=progress_text)
                 
@@ -310,6 +336,10 @@ def main():
         matched = r_skills.intersection(j_skills)
         missing = j_skills.difference(r_skills)
         final, k_score, c_score = calculate_metrics(r_text, j_text, r_skills, j_skills)
+        
+        # New Analysis Functions
+        archetype = get_candidate_archetype(r_skills)
+        comm_style = analyze_communication_style(r_text)
 
         # HERO
         st.title(f"🔍 Analysis: {st.session_state['role_title']}")
@@ -407,27 +437,22 @@ def main():
         st.subheader("🚀 Career Assets")
         tab1, tab2, tab3, tab4 = st.tabs(["🔥 Hot Seat", "📄 Cover Letter", "⚖️ Recruiter View", "📝 Full Resume Draft"])
 
-        # TAB 1: INTERVIEW SIMULATOR (EXPANDED)
+        # TAB 1: INTERVIEW SIMULATOR
         with tab1:
             st.caption("Questions appear here as you unlock skills.")
             active_question = None
-            
-            # SHOW QUESTIONS FOR CURRENT SKILLS (UP TO 5)
             if matched:
                 st.markdown("### 🎯 Questions based on your CURRENT skills:")
                 for s in list(matched)[:5]: # Show top 5 matched skill questions
                      q = INTERVIEW_Q.get(s, f"Tell me about your experience with {s}.")
                      st.info(f"**{s.title()}:** {q}")
                      active_question = q
-
-            # SHOW QUESTIONS FOR NEW/UNLOCKED SKILLS
             if st.session_state['completed_projects']:
                 st.markdown("### 🔓 UNLOCKED Questions (New Skills):")
                 for s in st.session_state['completed_projects']:
                     q = INTERVIEW_Q.get(s, f"How did you implement {s}?")
                     st.success(f"**{s.title()} (Unlocked):** {q}")
                     active_question = q 
-            
             if active_question:
                 st.markdown("---")
                 st.markdown("🎙️ **Practice Your Answer:**")
@@ -445,51 +470,67 @@ def main():
             cl_text = f"Dear Hiring Manager,\n\nI am applying for the {st.session_state['role_title']} role. {tone}\n\nMy analysis shows strong foundations in {', '.join(list(matched)[:3])}. I am currently building projects in {', '.join(list(missing)[:2])} to ensure I am day-one ready.\n\nSincerely,\nCandidate"
             st.text_area("Cover Letter Draft", cl_text, height=300)
 
-        # TAB 3: RECRUITER VIEW (ATS STYLE)
+        # TAB 3: RECRUITER VIEW (ADVANCED DASHBOARD)
         with tab3:
-            st.markdown("### 👓 ATS Dashboard")
-            st.caption("This is how an Applicant Tracking System (ATS) categorizes you.")
+            st.markdown("### 👓 Recruiter Risk Assessment Dashboard")
+            st.caption("This is the 'Secret View' hiring managers see.")
             
-            # VERDICT BADGE
+            # 1. ATS STATUS BANNER
             if final >= 80:
-                st.markdown(f"<div class='ats-badge-green'>✅ STATUS: SHORTLISTED (Top 10%)</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='ats-badge-green'>✅ VERDICT: SHORTLIST (Top 10%)</div>", unsafe_allow_html=True)
             elif final >= 50:
-                 st.markdown(f"<div class='ats-badge-yellow'>⚠️ STATUS: UNDER REVIEW (Potential Fit)</div>", unsafe_allow_html=True)
+                 st.markdown(f"<div class='ats-badge-yellow'>⚠️ VERDICT: ON HOLD (Potential Fit)</div>", unsafe_allow_html=True)
             else:
-                 st.markdown(f"<div class='ats-badge-red'>🛑 STATUS: REJECTED (Missing Key Skills)</div>", unsafe_allow_html=True)
+                 st.markdown(f"<div class='ats-badge-red'>🛑 VERDICT: REJECT (Critical Gaps)</div>", unsafe_allow_html=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # GREEN FLAGS VS RED FLAGS
+            # 2. CANDIDATE PERSONA & STYLE
+            c_p1, c_p2 = st.columns(2)
+            with c_p1:
+                st.info(f"**Candidate Archetype:** {archetype}")
+                st.caption("Based on skill cluster analysis (Frontend vs Backend vs Data).")
+            with c_p2:
+                st.info(f"**Communication Style:** {comm_style}")
+                st.caption("Based on 'Power Word' frequency in resume text.")
+
+            # 3. DETAILED RISK GRID
+            st.markdown("#### 🎯 Hiring Decision Matrix")
             c_green, c_red = st.columns(2)
+            
             with c_green:
-                st.markdown("#### ✅ Green Flags (Why Hire?)")
+                st.markdown("**✅ STRENGTHS (Green Flags)**")
                 if matched:
                     for s in list(matched):
-                        st.success(f"**{s.title()}**: Found in Resume")
+                        st.success(f"**{s.title()}**: Validated")
                 else:
-                    st.warning("No strong skill matches found.")
+                    st.warning("No core strengths identified.")
             
             with c_red:
-                st.markdown("#### 🚩 Red Flags (Concerns)")
+                st.markdown("**🚩 RISKS (Red Flags)**")
                 if missing:
                     for s in list(missing)[:5]:
-                        st.error(f"**{s.title()}**: Missing from Resume")
+                        risk_level = "HIGH" if s in ["react", "node.js", "python", "sql"] else "MED"
+                        st.error(f"**{s.title()}**: Missing ({risk_level} Risk)")
                 else:
-                    st.success("No critical gaps found!")
+                    st.success("No critical red flags found.")
             
-            # AUTO-GENERATED RECRUITER NOTE
+            # 4. TRAP QUESTIONS FOR RECRUITER
             st.markdown("---")
-            st.markdown("#### 📝 Auto-Generated Recruiter Notes")
-            recruiter_note = f"**Summary:** Candidate scored {final}/100. Strong match in {list(matched)[0] if matched else 'N/A'}. \n\n**Action:** Screen for {list(missing)[0] if missing else 'culture fit'} depth. {'Fast-track interview recommended.' if final > 70 else 'Keep in database for future roles.'}"
-            st.info(recruiter_note)
+            st.markdown("#### 🕵️‍♂️ Recommended 'Trap' Questions for Interviewer")
+            st.caption("Ask these to verify the candidate isn't bluffing.")
+            if missing:
+                trap_skill = list(missing)[0]
+                st.markdown(f"- *'I see you don't have **{trap_skill.title()}** on your resume. How would you handle a task that requires it?'*")
+            if matched:
+                verify_skill = list(matched)[0]
+                st.markdown(f"- *'Walk me through a specific bug you fixed using **{verify_skill.title()}**.'*")
 
         # TAB 4: FULL PROFESSIONAL RESUME GENERATOR
         with tab4:
             st.markdown("### 📝 Professional Resume Draft")
             st.caption("Formatted for Applicant Tracking Systems (ATS). Copy-paste into your editor.")
             
-            # Professional Header
             resume_draft = f"""
 # YOUR NAME
 [City, State] | [Phone Number] | [Email Address] | [LinkedIn Profile URL]
@@ -510,14 +551,12 @@ Results-oriented **{st.session_state['role_title']}** with a strong technical fo
 
 ## PROJECT PORTFOLIO
 """
-            # Add Unlocked Projects First (The "Wow" Factor)
             if st.session_state['completed_projects']:
                 for s in st.session_state['completed_projects']:
                     bullet = RESUME_BULLETS.get(s, f"Implemented {s} project.")
                     resume_draft += f"**{PROJECT_BLUEPRINTS[s]['title']}** | *Stack: {s.title()}*\n"
                     resume_draft += f"* {bullet}\n\n"
             
-            # Add Existing Skill Projects
             for s in list(matched)[:2]:
                 resume_draft += f"**{s.title()} Implementation** | *Stack: {s.title()}*\n"
                 resume_draft += f"* Designed and developed a solution using **{s.title()}** to solve key business challenges.\n\n"
