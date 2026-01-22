@@ -14,8 +14,8 @@ from reportlab.lib.pagesizes import letter
 
 # ---------------- 1. PAGE CONFIGURATION ----------------
 st.set_page_config(
-    page_title="CareerCraft AI - Executive",
-    page_icon="💎",
+    page_title="CareerCraft AI - Recruiter Edition",
+    page_icon="👔",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -46,6 +46,10 @@ st.markdown("""
         margin-right: 8px; display: inline-block; margin-bottom: 8px;
         border: 1px solid #fecaca;
     }
+    .ats-badge-green { background-color: #dcfce7; color: #15803d; padding: 5px 10px; border-radius: 5px; font-weight: bold; border: 1px solid #15803d; }
+    .ats-badge-red { background-color: #fee2e2; color: #b91c1c; padding: 5px 10px; border-radius: 5px; font-weight: bold; border: 1px solid #b91c1c; }
+    .ats-badge-yellow { background-color: #fef9c3; color: #a16207; padding: 5px 10px; border-radius: 5px; font-weight: bold; border: 1px solid #a16207; }
+    
     .feedback-box-weak { border-left: 5px solid #ef4444; background: #fef2f2; padding: 15px; border-radius: 5px; }
     .feedback-box-strong { border-left: 5px solid #22c55e; background: #f0fdf4; padding: 15px; border-radius: 5px; }
     .streamlit-expanderContent div { word-wrap: break-word; white-space: normal; line-height: 1.6; }
@@ -234,11 +238,11 @@ def main():
         st.session_state['completed_projects'] = set()
         st.session_state['readiness_score'] = 25 
         
-    # --- SIDEBAR (MOBILE FRIENDLY) ---
+    # --- SIDEBAR ---
     with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=50)
         st.title("CareerCraft AI")
-        st.caption("Executive Edition v11.0")
+        st.caption("Recruiter Edition v12.0")
         
         st.markdown("### 1. Resume Input")
         upload_mode = st.radio("Input Method", ["Upload File", "Paste Text"], horizontal=True, label_visibility="collapsed")
@@ -271,7 +275,6 @@ def main():
 
         if st.button("🚀 Analyze My Fit"):
             if resume_text_content and jd_text:
-                # --- AI THEATRICS ---
                 progress_text = "Initializing AI Agent..."
                 my_bar = st.progress(0, text=progress_text)
                 
@@ -442,18 +445,44 @@ def main():
             cl_text = f"Dear Hiring Manager,\n\nI am applying for the {st.session_state['role_title']} role. {tone}\n\nMy analysis shows strong foundations in {', '.join(list(matched)[:3])}. I am currently building projects in {', '.join(list(missing)[:2])} to ensure I am day-one ready.\n\nSincerely,\nCandidate"
             st.text_area("Cover Letter Draft", cl_text, height=300)
 
-        # TAB 3: RECRUITER VIEW
+        # TAB 3: RECRUITER VIEW (ATS STYLE)
         with tab3:
-            st.markdown("### 👓 How a Recruiter Sees You")
-            comp_data = []
-            for s in matched:
-                comp_data.append({"Skill": s.title(), "Status": "✅ Found", "Recommendation": "Good match."})
-            for s in missing:
-                comp_data.append({"Skill": s.title(), "Status": "❌ Missing", "Recommendation": f"Build {s.title()} project."})
-            if comp_data:
-                st.dataframe(pd.DataFrame(comp_data), use_container_width=True)
+            st.markdown("### 👓 ATS Dashboard")
+            st.caption("This is how an Applicant Tracking System (ATS) categorizes you.")
+            
+            # VERDICT BADGE
+            if final >= 80:
+                st.markdown(f"<div class='ats-badge-green'>✅ STATUS: SHORTLISTED (Top 10%)</div>", unsafe_allow_html=True)
+            elif final >= 50:
+                 st.markdown(f"<div class='ats-badge-yellow'>⚠️ STATUS: UNDER REVIEW (Potential Fit)</div>", unsafe_allow_html=True)
             else:
-                st.info("No skills found.")
+                 st.markdown(f"<div class='ats-badge-red'>🛑 STATUS: REJECTED (Missing Key Skills)</div>", unsafe_allow_html=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # GREEN FLAGS VS RED FLAGS
+            c_green, c_red = st.columns(2)
+            with c_green:
+                st.markdown("#### ✅ Green Flags (Why Hire?)")
+                if matched:
+                    for s in list(matched):
+                        st.success(f"**{s.title()}**: Found in Resume")
+                else:
+                    st.warning("No strong skill matches found.")
+            
+            with c_red:
+                st.markdown("#### 🚩 Red Flags (Concerns)")
+                if missing:
+                    for s in list(missing)[:5]:
+                        st.error(f"**{s.title()}**: Missing from Resume")
+                else:
+                    st.success("No critical gaps found!")
+            
+            # AUTO-GENERATED RECRUITER NOTE
+            st.markdown("---")
+            st.markdown("#### 📝 Auto-Generated Recruiter Notes")
+            recruiter_note = f"**Summary:** Candidate scored {final}/100. Strong match in {list(matched)[0] if matched else 'N/A'}. \n\n**Action:** Screen for {list(missing)[0] if missing else 'culture fit'} depth. {'Fast-track interview recommended.' if final > 70 else 'Keep in database for future roles.'}"
+            st.info(recruiter_note)
 
         # TAB 4: FULL PROFESSIONAL RESUME GENERATOR
         with tab4:
