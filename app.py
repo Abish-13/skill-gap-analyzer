@@ -269,14 +269,40 @@ def main():
 
         if st.button("🚀 Analyze My Fit"):
             if resume_text_content and jd_text:
+                # --- AI THEATRICS (Makes it look cool) ---
+                progress_text = "Initializing AI Agent..."
+                my_bar = st.progress(0, text=progress_text)
+
+                # Step 1: Parsing
+                time.sleep(0.3) # Tiny pause for effect
+                my_bar.progress(25, text="📄 Parsing Resume Text Layers & Removing Stopwords...")
+                
+                # Step 2: Vectorization
+                time.sleep(0.3)
+                my_bar.progress(50, text="🧮 Vectorizing Text (TF-IDF Transformation)...")
+                
+                # Step 3: Math
+                time.sleep(0.3)
+                my_bar.progress(75, text="🔍 Calculating Cosine Similarity & Euclidean Distance...")
+                
+                # Step 4: Finalizing
+                time.sleep(0.3)
+                my_bar.progress(90, text="📊 Generating Gap Analysis & Project Blueprints...")
+
+                # --- REAL LOGIC ---
                 st.session_state['analyzed'] = True
                 st.session_state['resume_text'] = resume_text_content
                 st.session_state['jd_text'] = jd_text
                 st.session_state['role_title'] = role_title
                 st.session_state['readiness_score'] = 25
                 st.session_state['completed_projects'] = set()
+                
+                my_bar.progress(100, text="✅ Analysis Complete!")
+                time.sleep(0.5)
+                my_bar.empty() # Remove the bar
+                st.rerun() # Refresh the page to show results
             else:
-                st.toast("⚠️ Please provide Resume text and Job Description!", icon="🚨")
+                st.toast("⚠️ Please provide Resume text and Job Description!", icon="🚨")icon="🚨")
 
     # --- MAIN DASHBOARD ---
     if st.session_state['analyzed']:
