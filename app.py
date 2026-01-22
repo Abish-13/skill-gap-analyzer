@@ -1,4 +1,5 @@
 import streamlit as st
+import time  # <--- THIS WAS MISSING
 import pdfplumber
 import docx
 import pandas as pd
@@ -19,47 +20,34 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for "Market Leader" UI
+# Custom CSS
 st.markdown("""
     <style>
-    /* Global Spacing */
     .block-container { padding-top: 2rem; padding-bottom: 5rem; }
     h1, h2, h3 { font-family: 'Inter', sans-serif; color: #0f172a; }
-    
-    /* Buttons */
     .stButton>button { 
         border-radius: 8px; font-weight: 600; border: none; 
         padding: 0.6rem 1.2rem; transition: all 0.2s ease;
         background-color: #3b82f6; color: white;
     }
     .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
-    
-    /* Project Cards */
     .project-card { 
         background-color: #f8fafc; padding: 20px; border-radius: 12px; 
         margin-bottom: 15px; border-left: 5px solid #3b82f6; 
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
-    
-    /* Badges */
     .salary-badge {
         background-color: #dcfce7; color: #166534; padding: 2px 6px; 
         border-radius: 4px; font-size: 0.8em; font-weight: bold; border: 1px solid #166534; margin-left: 5px;
     }
-    
-    /* Missing Keywords Badges */
     .missing-tag {
         background-color: #fee2e2; color: #991b1b; padding: 4px 10px; 
         border-radius: 6px; font-size: 0.9em; font-weight: 600; 
         margin-right: 8px; display: inline-block; margin-bottom: 8px;
         border: 1px solid #fecaca;
     }
-    
-    /* Answer Analyzer Box */
     .feedback-box-weak { border-left: 5px solid #ef4444; background: #fef2f2; padding: 15px; border-radius: 5px; }
     .feedback-box-strong { border-left: 5px solid #22c55e; background: #f0fdf4; padding: 15px; border-radius: 5px; }
-    
-    /* Tooltip Fix */
     .streamlit-expanderContent div { word-wrap: break-word; white-space: normal; line-height: 1.6; }
     </style>
     """, unsafe_allow_html=True)
@@ -74,7 +62,6 @@ SKILL_DB = {
     "Data": ["pandas", "numpy", "scikit-learn", "tensorflow", "pytorch", "tableau", "power bi", "excel", "spark"]
 }
 
-# MICRO-PROJECT BLUEPRINTS (Platinum Standard)
 PROJECT_BLUEPRINTS = {
     "react": {"title": "Trello Clone (Kanban)", "task": "Build a Drag-and-Drop Task Board using **React DnD** and **Redux Toolkit**.", "salary": "₹4 LPA"},
     "next.js": {"title": "SSR Blog Platform", "task": "Build a Server-Side Rendered (SSR) Blog using **getStaticProps** to optimize SEO performance.", "salary": "₹5 LPA"},
@@ -91,7 +78,6 @@ PROJECT_BLUEPRINTS = {
     "html": {"title": "Accessible Landing Page", "task": "Refactor a `div`-heavy page into **Semantic HTML** (<nav>, <article>, <main>) to score 100 on Lighthouse.", "salary": "₹1 LPA"}
 }
 
-# DYNAMIC INTERVIEW QUESTIONS
 INTERVIEW_Q = {
     "react": "Recruiter: I see you built a Trello Clone. How did you optimize rendering to prevent lag when dragging items? Did you use `React.memo`?",
     "next.js": "Recruiter: Explain the trade-off between **SSR (Server-Side Rendering)** and **ISR (Incremental Static Regeneration)** in your blog.",
@@ -107,7 +93,6 @@ INTERVIEW_Q = {
     "html": "Recruiter: Explain the importance of **Semantic HTML** (like `<article>` vs `<div>`) for accessibility."
 }
 
-# RESUME BULLETS
 RESUME_BULLETS = {
     "react": "Architected a Trello-style Kanban board using React, utilizing Redux for state management of 50+ tasks.",
     "next.js": "Engineered a Server-Side Rendered (SSR) blog using Next.js, improving SEO indexing and FCP by 40%.",
@@ -229,11 +214,11 @@ def main():
         st.session_state['completed_projects'] = set()
         st.session_state['readiness_score'] = 25 
         
-    # --- SIDEBAR (UPDATED FOR MOBILE) ---
+    # --- SIDEBAR ---
     with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=50)
         st.title("CareerCraft AI")
-        st.caption("Ultimate Edition v9.1")
+        st.caption("Ultimate Edition v9.2")
         
         # 1. MOBILE-FRIENDLY RESUME INPUT
         st.markdown("### 1. Resume Input")
@@ -269,27 +254,19 @@ def main():
 
         if st.button("🚀 Analyze My Fit"):
             if resume_text_content and jd_text:
-                # --- AI THEATRICS (Makes it look cool) ---
+                # --- AI THEATRICS ---
                 progress_text = "Initializing AI Agent..."
                 my_bar = st.progress(0, text=progress_text)
 
-                # Step 1: Parsing
-                time.sleep(0.3) # Tiny pause for effect
-                my_bar.progress(25, text="📄 Parsing Resume Text Layers & Removing Stopwords...")
-                
-                # Step 2: Vectorization
                 time.sleep(0.3)
-                my_bar.progress(50, text="🧮 Vectorizing Text (TF-IDF Transformation)...")
-                
-                # Step 3: Math
+                my_bar.progress(25, text="📄 Parsing Resume Text Layers...")
                 time.sleep(0.3)
-                my_bar.progress(75, text="🔍 Calculating Cosine Similarity & Euclidean Distance...")
-                
-                # Step 4: Finalizing
+                my_bar.progress(50, text="🧮 Vectorizing Text (TF-IDF)...")
                 time.sleep(0.3)
-                my_bar.progress(90, text="📊 Generating Gap Analysis & Project Blueprints...")
+                my_bar.progress(75, text="🔍 Calculating Cosine Similarity...")
+                time.sleep(0.3)
+                my_bar.progress(90, text="📊 Generating Gap Analysis...")
 
-                # --- REAL LOGIC ---
                 st.session_state['analyzed'] = True
                 st.session_state['resume_text'] = resume_text_content
                 st.session_state['jd_text'] = jd_text
@@ -299,10 +276,11 @@ def main():
                 
                 my_bar.progress(100, text="✅ Analysis Complete!")
                 time.sleep(0.5)
-                my_bar.empty() # Remove the bar
-                st.rerun() # Refresh the page to show results
+                my_bar.empty()
+                st.rerun()
             else:
-                st.toast("⚠️ Please provide Resume text and Job Description!", icon="🚨")          
+                st.toast("⚠️ Please provide Resume text and Job Description!", icon="🚨")
+
     # --- MAIN DASHBOARD ---
     if st.session_state['analyzed']:
         r_text = st.session_state['resume_text']
@@ -430,62 +408,30 @@ def main():
             cl_text = f"Dear Hiring Manager,\n\nI am applying for the {st.session_state['role_title']} role. {tone}\n\nMy analysis shows strong foundations in {', '.join(list(matched)[:3])}. I am currently building projects in {', '.join(list(missing)[:2])} to ensure I am day-one ready.\n\nSincerely,\nCandidate"
             st.text_area("Cover Letter Draft", cl_text, height=300)
 
-        # TAB 3: RECRUITER VIEW (Comparison Table)
+        # TAB 3: RECRUITER VIEW
         with tab3:
             st.markdown("### 👓 How a Recruiter Sees You")
-            st.caption("Side-by-side comparison of Job Requirements vs. Your Resume")
-            
             comp_data = []
             for s in matched:
-                comp_data.append({"Skill": s.title(), "Status": "✅ Found", "Recommendation": "Good match. Be ready to explain usage."})
+                comp_data.append({"Skill": s.title(), "Status": "✅ Found", "Recommendation": "Good match."})
             for s in missing:
-                comp_data.append({"Skill": s.title(), "Status": "❌ Missing", "Recommendation": f"Critical gap. Build a {s.title()} project."})
+                comp_data.append({"Skill": s.title(), "Status": "❌ Missing", "Recommendation": f"Build {s.title()} project."})
             
             if comp_data:
-                df_comp = pd.DataFrame(comp_data)
-                st.dataframe(df_comp, use_container_width=True)
+                st.dataframe(pd.DataFrame(comp_data), use_container_width=True)
             else:
-                st.info("No skills found to compare.")
+                st.info("No skills found.")
 
-        # TAB 4: FULL RESUME GENERATOR
+        # TAB 4: FULL RESUME
         with tab4:
             st.markdown("### 📝 Full Resume Draft")
-            st.caption("Copy this text into Word or Google Docs.")
-            
-            resume_draft = f"""# CANDIDATE NAME
-[City, State] | [Phone] | [Email] | [LinkedIn URL]
-
-## PROFESSIONAL SUMMARY
-Motivated {st.session_state['role_title']} with a strong foundation in {', '.join(list(matched)[:3])}. Proven ability to build scalable web applications and optimize system performance. Eager to contribute technical expertise to [Company Name].
-
-## TECHNICAL SKILLS
-**Proficient:** {', '.join([s.title() for s in matched])}
-**Learning:** {', '.join([s.title() for s in list(missing)[:3]])}
-
-## PROJECTS
-"""
+            resume_draft = f"""# CANDIDATE NAME\n[City, State] | [Phone] | [Email]\n\n## SUMMARY\nMotivated {st.session_state['role_title']} with skills in {', '.join(list(matched)[:3])}.\n\n## PROJECTS\n"""
             if st.session_state['completed_projects']:
                 for s in st.session_state['completed_projects']:
-                    bullet = RESUME_BULLETS.get(s, f"Implemented {s} project.")
-                    resume_draft += f"**{PROJECT_BLUEPRINTS[s]['title']}** | *{s.title()}*\n"
-                    resume_draft += f"- {bullet}\n\n"
-            
-            for s in list(matched)[:2]:
-                resume_draft += f"**{s.title()} Project** | *{s.title()}*\n"
-                resume_draft += f"- Leveraged {s} to build a responsive application, improving user engagement.\n\n"
-
-            resume_draft += """## EDUCATION
-**Bachelor of Technology in Computer Science**
-[University Name], [Year]
-
-## CERTIFICATIONS
-- Full Stack Web Development Bootcamp
-- [Specific Skill] Certification
-"""
+                    resume_draft += f"**{PROJECT_BLUEPRINTS[s]['title']}**\n- {RESUME_BULLETS.get(s)}\n\n"
             st.text_area("Full Resume Text", resume_draft, height=600)
 
     elif not st.session_state['analyzed']:
-        # Mobile-friendly start message
         st.info("👈 Open Sidebar to Paste Resume or Upload File.")
 
 if __name__ == "__main__":
