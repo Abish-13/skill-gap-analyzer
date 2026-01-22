@@ -1,5 +1,5 @@
 import streamlit as st
-import time  # <--- THIS WAS MISSING
+import time
 import pdfplumber
 import docx
 import pandas as pd
@@ -14,8 +14,8 @@ from reportlab.lib.pagesizes import letter
 
 # ---------------- 1. PAGE CONFIGURATION ----------------
 st.set_page_config(
-    page_title="CareerCraft AI - Ultimate",
-    page_icon="🦄",
+    page_title="CareerCraft AI - Diamond",
+    page_icon="💎",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -59,7 +59,8 @@ SKILL_DB = {
     "Backend": ["python", "django", "flask", "node.js", "express", "java", "spring boot", "go", "c#", ".net"],
     "Database": ["sql", "mysql", "postgresql", "mongodb", "redis", "firebase", "elasticsearch"],
     "DevOps": ["aws", "docker", "kubernetes", "jenkins", "git", "ci/cd", "linux", "terraform", "azure"],
-    "Data": ["pandas", "numpy", "scikit-learn", "tensorflow", "pytorch", "tableau", "power bi", "excel", "spark"]
+    "Data": ["pandas", "numpy", "scikit-learn", "tensorflow", "pytorch", "tableau", "power bi", "excel", "spark"],
+    "Soft Skills": ["communication", "teamwork", "leadership", "problem solving", "adaptability", "time management", "creativity", "collaboration", "mentoring", "agile"]
 }
 
 PROJECT_BLUEPRINTS = {
@@ -153,7 +154,6 @@ def analyze_answer(answer):
         if w in answer.lower():
             score -= 10
             feedback.append(f"Avoid uncertain words like '{w}'. Be confident.")
-            
     for w in strong_words:
         if w in answer.lower():
             score += 20
@@ -206,6 +206,26 @@ def generate_cheat_sheet(name, role, skills, bullets):
     buffer.seek(0)
     return buffer
 
+def create_soft_skills_chart(resume_text):
+    soft_skills = ["communication", "teamwork", "leadership", "problem solving", "adaptability", "creativity"]
+    scores = []
+    resume_text_lower = resume_text.lower()
+    for skill in soft_skills:
+        count = resume_text_lower.count(skill)
+        if count > 0: scores.append(min(count + 2, 5))
+        else: scores.append(1)
+            
+    fig = go.Figure(data=go.Scatterpolar(
+        r=scores, theta=[s.title() for s in soft_skills],
+        fill='toself', name='Soft Skills', line_color='#2563eb'
+    ))
+    fig.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0, 5])),
+        showlegend=False, title="🧠 Soft Skills Profile",
+        height=300, margin=dict(t=40, b=20, l=40, r=40)
+    )
+    return fig
+
 # ---------------- 4. MAIN APP ----------------
 
 def main():
@@ -214,13 +234,12 @@ def main():
         st.session_state['completed_projects'] = set()
         st.session_state['readiness_score'] = 25 
         
-    # --- SIDEBAR ---
+    # --- SIDEBAR (MOBILE FRIENDLY) ---
     with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=50)
         st.title("CareerCraft AI")
-        st.caption("Ultimate Edition v9.2")
+        st.caption("Diamond Edition v10.0")
         
-        # 1. MOBILE-FRIENDLY RESUME INPUT
         st.markdown("### 1. Resume Input")
         upload_mode = st.radio("Input Method", ["Upload File", "Paste Text"], horizontal=True, label_visibility="collapsed")
         
@@ -229,12 +248,10 @@ def main():
 
         if upload_mode == "Upload File":
             uploaded_file = st.file_uploader("Upload Resume (PDF/DOCX)", type=["pdf", "docx"])
-            if uploaded_file:
-                resume_text_content = extract_text(uploaded_file)
+            if uploaded_file: resume_text_content = extract_text(uploaded_file)
         else:
             resume_text_content = st.text_area("Paste Resume Text Here", height=200, placeholder="Copy-paste your full resume text here...")
 
-        # 2. TARGET JOB
         st.markdown("### 2. Target Job")
         target_mode = st.radio("Target Method", ["Paste JD (Recommended)", "Preset Role"], horizontal=True, label_visibility="collapsed")
         jd_text = ""
@@ -257,7 +274,7 @@ def main():
                 # --- AI THEATRICS ---
                 progress_text = "Initializing AI Agent..."
                 my_bar = st.progress(0, text=progress_text)
-
+                
                 time.sleep(0.3)
                 my_bar.progress(25, text="📄 Parsing Resume Text Layers...")
                 time.sleep(0.3)
@@ -321,6 +338,20 @@ def main():
             with st.expander("✨ Peek at Magic Rewrite"):
                 st.info(f"**Instead of:** 'Used {list(matched)[0] if matched else 'Java'}'")
                 st.success(f"**Write this:** 'Leveraged **{list(matched)[0] if matched else 'Java'}** to architect scalable solutions, improving system latency by 30%.'")
+
+        # --- SOFT SKILLS & LINKEDIN (NEW) ---
+        st.markdown("---")
+        col_chart, col_linkedin = st.columns([1, 1])
+        with col_chart:
+            chart = create_soft_skills_chart(r_text)
+            st.plotly_chart(chart, use_container_width=True)
+        with col_linkedin:
+            st.subheader("🔗 LinkedIn Makeover")
+            st.caption("Copy this to your LinkedIn Headline for better visibility.")
+            top_skills = list(matched)[:3] if matched else ["Tech"]
+            headline = f"🚀 Aspiring {st.session_state['role_title']} | Proficient in {', '.join([s.title() for s in top_skills])} | Solving complex problems with Code"
+            st.code(headline, language="text")
+            st.info("💡 **Pro Tip:** Adding a 'Project Portfolio' link to your bio increases recruiter clicks by 40%.")
 
         st.markdown("---")
 
@@ -416,7 +447,6 @@ def main():
                 comp_data.append({"Skill": s.title(), "Status": "✅ Found", "Recommendation": "Good match."})
             for s in missing:
                 comp_data.append({"Skill": s.title(), "Status": "❌ Missing", "Recommendation": f"Build {s.title()} project."})
-            
             if comp_data:
                 st.dataframe(pd.DataFrame(comp_data), use_container_width=True)
             else:
