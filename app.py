@@ -302,8 +302,7 @@ def main():
                 my_bar.empty() # Remove the bar
                 st.rerun() # Refresh the page to show results
             else:
-                st.toast("⚠️ Please provide Resume text and Job Description!", icon="🚨")icon="🚨")
-
+                st.toast("⚠️ Please provide Resume text and Job Description!", icon="🚨")          
     # --- MAIN DASHBOARD ---
     if st.session_state['analyzed']:
         r_text = st.session_state['resume_text']
