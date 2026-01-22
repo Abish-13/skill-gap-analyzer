@@ -14,7 +14,7 @@ from reportlab.lib.pagesizes import letter
 
 # ---------------- 1. PAGE CONFIGURATION ----------------
 st.set_page_config(
-    page_title="CareerCraft AI - Diamond",
+    page_title="CareerCraft AI - Executive",
     page_icon="💎",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -238,7 +238,7 @@ def main():
     with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=50)
         st.title("CareerCraft AI")
-        st.caption("Diamond Edition v10.0")
+        st.caption("Executive Edition v11.0")
         
         st.markdown("### 1. Resume Input")
         upload_mode = st.radio("Input Method", ["Upload File", "Paste Text"], horizontal=True, label_visibility="collapsed")
@@ -339,7 +339,7 @@ def main():
                 st.info(f"**Instead of:** 'Used {list(matched)[0] if matched else 'Java'}'")
                 st.success(f"**Write this:** 'Leveraged **{list(matched)[0] if matched else 'Java'}** to architect scalable solutions, improving system latency by 30%.'")
 
-        # --- SOFT SKILLS & LINKEDIN (NEW) ---
+        # --- SOFT SKILLS & LINKEDIN ---
         st.markdown("---")
         col_chart, col_linkedin = st.columns([1, 1])
         with col_chart:
@@ -404,24 +404,27 @@ def main():
         st.subheader("🚀 Career Assets")
         tab1, tab2, tab3, tab4 = st.tabs(["🔥 Hot Seat", "📄 Cover Letter", "⚖️ Recruiter View", "📝 Full Resume Draft"])
 
-        # TAB 1: INTERVIEW SIMULATOR
+        # TAB 1: INTERVIEW SIMULATOR (EXPANDED)
         with tab1:
             st.caption("Questions appear here as you unlock skills.")
             active_question = None
             
-            if st.session_state['completed_projects']:
-                st.markdown("**🔓 UNLOCKED QUESTIONS (New Skills):**")
-                for s in st.session_state['completed_projects']:
-                    q = INTERVIEW_Q.get(s, f"How did you implement {s}?")
-                    st.success(f"**{s.title()} (Unlocked):** {q}")
-                    active_question = q 
-            elif matched:
-                st.markdown("**Based on your current resume:**")
-                for s in list(matched)[:1]:
+            # SHOW QUESTIONS FOR CURRENT SKILLS (UP TO 5)
+            if matched:
+                st.markdown("### 🎯 Questions based on your CURRENT skills:")
+                for s in list(matched)[:5]: # Show top 5 matched skill questions
                      q = INTERVIEW_Q.get(s, f"Tell me about your experience with {s}.")
                      st.info(f"**{s.title()}:** {q}")
                      active_question = q
 
+            # SHOW QUESTIONS FOR NEW/UNLOCKED SKILLS
+            if st.session_state['completed_projects']:
+                st.markdown("### 🔓 UNLOCKED Questions (New Skills):")
+                for s in st.session_state['completed_projects']:
+                    q = INTERVIEW_Q.get(s, f"How did you implement {s}?")
+                    st.success(f"**{s.title()} (Unlocked):** {q}")
+                    active_question = q 
+            
             if active_question:
                 st.markdown("---")
                 st.markdown("🎙️ **Practice Your Answer:**")
@@ -452,13 +455,54 @@ def main():
             else:
                 st.info("No skills found.")
 
-        # TAB 4: FULL RESUME
+        # TAB 4: FULL PROFESSIONAL RESUME GENERATOR
         with tab4:
-            st.markdown("### 📝 Full Resume Draft")
-            resume_draft = f"""# CANDIDATE NAME\n[City, State] | [Phone] | [Email]\n\n## SUMMARY\nMotivated {st.session_state['role_title']} with skills in {', '.join(list(matched)[:3])}.\n\n## PROJECTS\n"""
+            st.markdown("### 📝 Professional Resume Draft")
+            st.caption("Formatted for Applicant Tracking Systems (ATS). Copy-paste into your editor.")
+            
+            # Professional Header
+            resume_draft = f"""
+# YOUR NAME
+[City, State] | [Phone Number] | [Email Address] | [LinkedIn Profile URL]
+
+## PROFESSIONAL SUMMARY
+Results-oriented **{st.session_state['role_title']}** with a strong technical foundation in **{', '.join([s.title() for s in list(matched)[:3]])}**. Proven ability to architect scalable applications and optimize system performance. Dedicated to continuous learning, currently expanding expertise in **{', '.join([s.title() for s in list(missing)[:2]])}** through practical project implementation.
+
+## TECHNICAL SKILLS
+* **Core Competencies:** {', '.join([s.title() for s in matched])}
+* **Emerging Tech:** {', '.join([s.title() for s in list(missing)[:3]])}
+* **Tools & Platforms:** Git, VS Code, JIRA, Postman
+
+## PROFESSIONAL EXPERIENCE
+**[Job Title]** | [Company Name] | [Dates]
+* Leveraged **{list(matched)[0] if matched else 'Java'}** to improve application performance, resulting in a 15% reduction in latency.
+* Collaborated with cross-functional teams to design and deploy features using **{list(matched)[1] if len(matched)>1 else 'SQL'}**.
+* (Placeholder: Add your specific work achievements here, quantifying results where possible).
+
+## PROJECT PORTFOLIO
+"""
+            # Add Unlocked Projects First (The "Wow" Factor)
             if st.session_state['completed_projects']:
                 for s in st.session_state['completed_projects']:
-                    resume_draft += f"**{PROJECT_BLUEPRINTS[s]['title']}**\n- {RESUME_BULLETS.get(s)}\n\n"
+                    bullet = RESUME_BULLETS.get(s, f"Implemented {s} project.")
+                    resume_draft += f"**{PROJECT_BLUEPRINTS[s]['title']}** | *Stack: {s.title()}*\n"
+                    resume_draft += f"* {bullet}\n\n"
+            
+            # Add Existing Skill Projects
+            for s in list(matched)[:2]:
+                resume_draft += f"**{s.title()} Implementation** | *Stack: {s.title()}*\n"
+                resume_draft += f"* Designed and developed a solution using **{s.title()}** to solve key business challenges.\n\n"
+
+            resume_draft += """
+## EDUCATION
+**Bachelor of Technology in Computer Science**
+[University Name], [Graduation Year]
+* Relevant Coursework: Data Structures, Algorithms, Database Management Systems.
+
+## CERTIFICATIONS
+* Full Stack Web Development Bootcamp
+* [Add other certifications here]
+"""
             st.text_area("Full Resume Text", resume_draft, height=600)
 
     elif not st.session_state['analyzed']:
