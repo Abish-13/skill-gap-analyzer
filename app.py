@@ -52,7 +52,6 @@ st.markdown("""
     
     .feedback-box-weak { border-left: 5px solid #ef4444; background: #fef2f2; padding: 15px; border-radius: 5px; }
     .feedback-box-strong { border-left: 5px solid #22c55e; background: #f0fdf4; padding: 15px; border-radius: 5px; }
-    /* Dynamic Progress Bar CSS */
     .stProgress > div > div > div > div { background-image: linear-gradient(to right, #4CAF50, #8BC34A); }
     </style>
     """, unsafe_allow_html=True)
@@ -79,7 +78,8 @@ PROJECT_BLUEPRINTS = {
     "sql": {"title": "E-Commerce Schema (3NF)", "task": "Design a normalized DB for an Amazon clone. Write queries using **JOINs**.", "salary": "₹3 LPA"},
     "aws": {"title": "Serverless API", "task": "Deploy a 'Hello World' function on **AWS Lambda** triggered by API Gateway.", "salary": "₹7 LPA"},
     "docker": {"title": "Microservice Dockerfile", "task": "Write a multi-stage **Dockerfile** for a Python app to reduce image size by 40%.", "salary": "₹5 LPA"},
-    "git": {"title": "Simulate Merge Conflict", "task": "Create two branches and resolve the conflict using **Git CLI**.", "salary": "₹2 LPA"}
+    "git": {"title": "Simulate Merge Conflict", "task": "Create two branches and resolve the conflict using **Git CLI**.", "salary": "₹2 LPA"},
+    "java": {"title": "Multithreaded Chat Server", "task": "Build a basic real-time chat room using Java Sockets and Multithreading.", "salary": "₹5 LPA"}
 }
 
 INTERVIEW_Q = {
@@ -88,10 +88,19 @@ INTERVIEW_Q = {
     "python": "Recruiter: How would you handle a sudden API rate limit error without crashing the script?",
     "sql": "Recruiter: When would you intentionally denormalize your 3NF database for read performance?",
     "aws": "Recruiter: How did you manage **Cold Starts** in your Lambda function?",
-    "docker": "Recruiter: You reduced image size by 40%. Did you use **Alpine Linux**? What are the security trade-offs?"
+    "docker": "Recruiter: You reduced image size by 40%. Did you use **Alpine Linux**? What are the security trade-offs?",
+    "java": "Recruiter: How did you handle thread synchronization to prevent race conditions in your chat server?"
 }
 
-# --- DYNAMIC REWRITE DATABASE (FIXED FOR VARIETY) ---
+RESUME_BULLETS = {
+    "react": "Architected a Trello-style Kanban board using React, utilizing Redux for state management of 50+ tasks.",
+    "python": "Developed a financial data pipeline using Python (Pandas), automating real-time crypto analysis.",
+    "aws": "Deployed a serverless architecture on AWS Lambda, optimizing API Gateway triggers for <100ms latency.",
+    "docker": "Optimized container orchestration using multi-stage Dockerfiles, reducing production image size by 40%.",
+    "sql": "Designed a scalable 3NF database schema, optimizing complex JOIN queries for <50ms execution time."
+}
+
+# --- NEW: DYNAMIC REWRITES (For Multiple Skills) ---
 MAGIC_REWRITES = {
     "react": "Architected a responsive UI using React, improving user retention metrics by 15% through optimized component state management.",
     "python": "Engineered automated data pipelines in Python, processing 10k+ rows of data and reducing manual workload by 30%.",
@@ -126,7 +135,7 @@ def extract_skills(text):
                 found.add(skill)
     return found
 
-# --- FIXED METRICS (REMOVED 15% HARDCODE) ---
+# --- FIXED: TRUE COSINE SIMILARITY CALCULATION (No 15% Baseline) ---
 def calculate_metrics(resume_text, jd_text, r_skills, j_skills):
     if not j_skills: return 0, 0, 0 
     k_score = int((len(r_skills.intersection(j_skills)) / len(j_skills)) * 100)
@@ -134,7 +143,7 @@ def calculate_metrics(resume_text, jd_text, r_skills, j_skills):
     tfidf = TfidfVectorizer(stop_words='english')
     try:
         matrix = tfidf.fit_transform([resume_text, jd_text])
-        # Direct geometric angle, no floor
+        # Direct geometric angle, no floor. If it's unrelated, it will show 0-5%.
         c_score = int(cosine_similarity(matrix[0:1], matrix[1:2])[0][0] * 100)
     except: 
         c_score = 0
@@ -184,6 +193,44 @@ def analyze_answer(answer, target_skill):
     else:
         return "🛑 Critical Flaw", f"You missed the mark. You didn't even mention the core skill ({target_skill})! Try again.", "weak"
 
+def generate_cheat_sheet(name, role, skills, bullets):
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(50, 750, f"Interview Cheat Sheet: {name}")
+    c.setFont("Helvetica", 12)
+    c.drawString(50, 730, f"Target Role: {role}")
+    c.line(50, 720, 550, 720)
+    y = 690
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(50, y, "1. My Power Hooks")
+    y -= 20
+    c.setFont("Helvetica", 12)
+    c.drawString(50, y, f"• \"I specialize in {', '.join(list(skills)[:2])} to build scalable apps.\"")
+    y -= 20
+    c.drawString(50, y, "• \"I focus on performance optimization and clean architecture.\"")
+    y -= 40
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(50, y, "2. Project Stories (STAR Method)")
+    y -= 25
+    c.setFont("Helvetica", 10)
+    for skill, bullet in list(bullets.items())[:5]:
+        text = bullet.replace("**", "")
+        c.drawString(50, y, f"[{skill.upper()}]")
+        y -= 15
+        c.drawString(60, y, text[:90] + "...") 
+        y -= 20
+    y -= 20
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(50, y, "3. Tech Keywords to Drop")
+    y -= 25
+    c.setFont("Helvetica-Oblique", 12)
+    keywords = ["Scalability", "CI/CD Pipeline", "Latency Reduction", "State Management", "Unit Testing"]
+    c.drawString(50, y, ", ".join(keywords))
+    c.save()
+    buffer.seek(0)
+    return buffer
+
 def create_soft_skills_chart(resume_text):
     soft_skills = ["communication", "teamwork", "leadership", "problem solving", "adaptability", "creativity"]
     scores = []
@@ -212,11 +259,11 @@ def main():
         st.session_state['completed_projects'] = set()
         st.session_state['readiness_score'] = 0 
         
-    # --- SIDEBAR ---
+    # --- SIDEBAR (Dual Input & Preset Roles) ---
     with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=50)
         st.title("CareerCraft AI")
-        st.caption("Recruiter Edition v15.0 (Ultimate)")
+        st.caption("Recruiter Edition v15.0 (Diamond Ultimate)")
         
         st.markdown("### 1. Resume Input")
         upload_mode = st.radio("Input Method", ["Upload File", "Paste Text"], horizontal=True, label_visibility="collapsed")
@@ -291,11 +338,14 @@ def main():
         # HERO
         st.title(f"🔍 Analysis: {st.session_state['role_title']}")
         
-        col_bar, _ = st.columns([3, 1])
+        col_bar, col_export = st.columns([3, 1])
         with col_bar:
-            st.caption("🎓 Interview Readiness Level (Pure Geometric Distance)")
+            st.caption("🎓 Interview Readiness Level (Pure TF-IDF Cosine Match)")
             st.progress(st.session_state['readiness_score'] / 100)
             st.markdown(f"**Level: {st.session_state['readiness_score']}%** (Build projects to level up!)")
+        with col_export:
+            pdf_bytes = generate_cheat_sheet("Candidate", st.session_state['role_title'], matched, RESUME_BULLETS)
+            st.download_button("📄 Interview Cheat Sheet", data=pdf_bytes, file_name="Interview_Cheat_Sheet.pdf", mime="application/pdf")
 
         # METRICS
         st.markdown("---")
@@ -313,12 +363,12 @@ def main():
         with c3:
             st.metric("Context Score", f"{c_score}%")
             
-            # --- FIXED: MULTIPLE DYNAMIC REWRITES ---
+            # --- FIXED: DYNAMIC MAGIC REWRITES (Multi-Skill based on actual resume) ---
             with st.expander("✨ Peek at Magic Rewrites (Multi-Skill)"):
-                st.caption("AI-generated impactful bullet points based on your specific matched skills.")
+                st.caption("AI-generated impactful bullet points based on YOUR matched skills.")
                 matched_list = list(matched)
                 if len(matched_list) > 0:
-                    for i in range(min(3, len(matched_list))): # Show up to 3 different skills
+                    for i in range(min(3, len(matched_list))): # Show up to 3 specific skills
                         skill = matched_list[i]
                         rewrite = MAGIC_REWRITES.get(skill, f"Leveraged {skill.title()} to architect robust solutions, optimizing overall system performance.")
                         st.markdown(f"**Instead of:** *'Used {skill.title()}'*")
@@ -334,7 +384,7 @@ def main():
             st.plotly_chart(chart, use_container_width=True)
         with col_linkedin:
             st.subheader("🔗 LinkedIn Makeover")
-            st.caption("Tailored to your specific candidate archetype.")
+            st.caption("Tailored to your specific candidate archetype & writing style.")
             
             # --- FIXED: DYNAMIC HEADLINE & PRO TIP ---
             top_skills = list(matched)[:3] if matched else ["Tech"]
@@ -352,7 +402,7 @@ def main():
             
             # Generate Tip based on Communication Style
             if "Passive" in comm_style:
-                st.info("💡 **Pro Tip:** Your resume uses passive verbs (e.g., 'helped'). LinkedIn recruiters search for 'Led' and 'Architected'. Update your 'About' section with stronger verbs!")
+                st.info("💡 **Pro Tip:** Your resume uses passive verbs (e.g., 'helped'). Recruiters search for 'Led' and 'Architected'. Update your 'About' section with stronger verbs!")
             elif "High Impact" in comm_style:
                 st.success("💡 **Pro Tip:** Your communication style is excellent! Pin your GitHub profile to your LinkedIn 'Featured' section to prove your code matches your strong claims.")
             else:
@@ -360,7 +410,7 @@ def main():
 
         st.markdown("---")
 
-        # BLUEPRINTS (Same as previous working version)
+        # BLUEPRINTS
         col_L, col_R = st.columns([1, 1.2])
 
         with col_L:
@@ -370,6 +420,7 @@ def main():
 
         with col_R:
             st.subheader("🛠️ Build to Level Up")
+            st.caption("Complete these blueprints to unlock Resume Bullets & Interview Questions.")
             if missing:
                 for skill in list(missing)[:3]:
                     bp = PROJECT_BLUEPRINTS.get(skill, {"title": f"{skill.title()} Project", "task": f"Build a practical application demonstrating {skill}.", "salary": "₹2 LPA"})
@@ -385,27 +436,132 @@ def main():
                             st.session_state['completed_projects'].add(skill)
                             st.session_state['readiness_score'] += 15
                             st.rerun()
+                        if skill in st.session_state['completed_projects']:
+                            bullet = RESUME_BULLETS.get(skill, f"• Implemented **{skill.title()}** to optimize workflows.")
+                            st.markdown(f"**Resume Bullet:**")
+                            st.code(bullet, language="markdown")
+                            st.toast(f"Level Up! {skill.title()} Interview Question Unlocked!", icon="🔓")
             else:
                 st.success("You have the perfect stack! Go to the Grill.")
 
         st.markdown("---")
         st.subheader("🚀 Career Assets")
+        # --- ALL DIAMOND TABS RESTORED ---
         tab1, tab2, tab3, tab4 = st.tabs(["🔥 Hot Seat", "📄 Cover Letter", "⚖️ Recruiter View", "📝 Full Resume Draft"])
 
+        # TAB 1: INTERVIEW SIMULATOR
         with tab1:
-            st.markdown("### 🎙️ Practice Your Answer:")
-            active_skill = list(matched)[0] if matched else "coding"
-            st.info(f"**Q:** Tell me about your experience using **{active_skill.title()}**.")
-            user_ans = st.text_area("Type your answer here...", height=100)
-            if st.button("Analyze My Answer"):
-                if user_ans:
-                    verdict, text, style = analyze_answer(user_ans, active_skill)
-                    st.markdown(f"<div class='feedback-box-{style}'><b>{verdict}</b><br>{text}</div>", unsafe_allow_html=True)
-                else:
-                    st.warning("Please type an answer first.")
+            st.caption("Questions appear here as you unlock skills.")
+            active_question = None
+            active_skill = None 
+            
+            if matched:
+                st.markdown("### 🎯 Questions based on your CURRENT skills:")
+                for s in list(matched)[:5]:
+                     q = INTERVIEW_Q.get(s, f"Tell me about your experience with {s}.")
+                     st.info(f"**{s.title()}:** {q}")
+                     active_question = q
+                     active_skill = s
+                     
+            if st.session_state['completed_projects']:
+                st.markdown("### 🔓 UNLOCKED Questions (New Skills):")
+                for s in st.session_state['completed_projects']:
+                    q = INTERVIEW_Q.get(s, f"How did you implement {s}?")
+                    st.success(f"**{s.title()} (Unlocked):** {q}")
+                    active_question = q 
+                    active_skill = s
+                    
+            if active_question and active_skill:
+                st.markdown("---")
+                st.markdown("🎙️ **Practice Your Answer:**")
+                user_ans = st.text_area("Type your answer here to get AI feedback...", height=100)
+                if st.button("Analyze My Answer"):
+                    if user_ans:
+                        verdict, text, style = analyze_answer(user_ans, active_skill)
+                        st.markdown(f"<div class='feedback-box-{style}'><b>{verdict}</b><br>{text}</div>", unsafe_allow_html=True)
+                    else:
+                        st.warning("Please type an answer first.")
 
-        # Tabs 2, 3, 4 remain identical to the previous diamond tier logic...
-        # (Content omitted for brevity but they are the exact same as the last version)
+        # TAB 2: COVER LETTER
+        with tab2:
+            tone = "I am a rapid learner actively closing technical gaps." if final < 70 else "I am ready to deliver value immediately."
+            cl_text = f"Dear Hiring Manager,\n\nI am applying for the {st.session_state['role_title']} role. {tone}\n\nMy analysis shows strong foundations in {', '.join(list(matched)[:3])}. I am currently building projects in {', '.join(list(missing)[:2])} to ensure I am day-one ready.\n\nSincerely,\nCandidate"
+            st.text_area("Cover Letter Draft", cl_text, height=300)
+
+        # TAB 3: RECRUITER VIEW (ADVANCED DASHBOARD)
+        with tab3:
+            st.markdown("### 👓 Recruiter Risk Assessment Dashboard")
+            st.caption("This is the 'Secret View' hiring managers see.")
+            
+            if final >= 80:
+                st.markdown(f"<div class='ats-badge-green'>✅ VERDICT: SHORTLIST (Top 10%)</div>", unsafe_allow_html=True)
+            elif final >= 50:
+                 st.markdown(f"<div class='ats-badge-yellow'>⚠️ VERDICT: ON HOLD (Potential Fit)</div>", unsafe_allow_html=True)
+            else:
+                 st.markdown(f"<div class='ats-badge-red'>🛑 VERDICT: REJECT (Critical Gaps)</div>", unsafe_allow_html=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            c_p1, c_p2 = st.columns(2)
+            with c_p1:
+                st.info(f"**Candidate Archetype:** {archetype}")
+                st.caption("Based on skill cluster analysis.")
+            with c_p2:
+                st.info(f"**Communication Style:** {comm_style}")
+                st.caption("Based on 'Power Word' frequency.")
+
+            st.markdown("#### 🎯 Hiring Decision Matrix")
+            c_green, c_red = st.columns(2)
+            with c_green:
+                st.markdown("**✅ STRENGTHS (Green Flags)**")
+                for s in list(matched): st.success(f"**{s.title()}**: Validated")
+            with c_red:
+                st.markdown("**🚩 RISKS (Red Flags)**")
+                for s in list(missing)[:5]: 
+                    st.error(f"**{s.title()}**: Missing")
+            
+            st.markdown("---")
+            st.markdown("#### 🕵️‍♂️ Recommended 'Trap' Questions for Interviewer")
+            st.caption("Ask these to verify the candidate isn't bluffing.")
+            if missing:
+                trap_skill = list(missing)[0]
+                st.markdown(f"- *'I see you don't have **{trap_skill.title()}** on your resume. How would you handle a task that requires it?'*")
+            if matched:
+                verify_skill = list(matched)[0]
+                st.markdown(f"- *'Walk me through a specific bug you fixed using **{verify_skill.title()}**.'*")
+
+        # TAB 4: FULL PROFESSIONAL RESUME GENERATOR
+        with tab4:
+            st.markdown("### 📝 Professional Resume Draft")
+            st.caption("Formatted for Applicant Tracking Systems (ATS). Copy-paste into your editor.")
+            
+            resume_draft = f"""
+# YOUR NAME
+[City, State] | [Phone Number] | [Email Address] | [LinkedIn Profile URL]
+
+## PROFESSIONAL SUMMARY
+Results-oriented **{st.session_state['role_title']}** with a strong technical foundation in **{', '.join([s.title() for s in list(matched)[:3]])}**. Proven ability to architect scalable applications and optimize system performance. Dedicated to continuous learning, currently expanding expertise in **{', '.join([s.title() for s in list(missing)[:2]])}** through practical project implementation.
+
+## TECHNICAL SKILLS
+* **Core Competencies:** {', '.join([s.title() for s in matched])}
+* **Emerging Tech:** {', '.join([s.title() for s in list(missing)[:3]])}
+
+## PROFESSIONAL EXPERIENCE
+**[Job Title]** | [Company Name] | [Dates]
+* Leveraged **{list(matched)[0] if matched else 'Java'}** to improve application performance, resulting in a 15% reduction in latency.
+* Collaborated with cross-functional teams to design and deploy features using **{list(matched)[1] if len(matched)>1 else 'SQL'}**.
+
+## PROJECT PORTFOLIO
+"""
+            if st.session_state['completed_projects']:
+                for s in st.session_state['completed_projects']:
+                    bullet = RESUME_BULLETS.get(s, f"Implemented {s} project.")
+                    resume_draft += f"**{PROJECT_BLUEPRINTS[s]['title']}** | *Stack: {s.title()}*\n* {bullet}\n\n"
+            
+            for s in list(matched)[:2]:
+                resume_draft += f"**{s.title()} Implementation** | *Stack: {s.title()}*\n* Designed and developed a solution using **{s.title()}** to solve key business challenges.\n\n"
+
+            st.text_area("Full Resume Text", resume_draft, height=600)
 
     elif not st.session_state['analyzed']:
         st.info("👈 Open Sidebar to Paste Resume or Upload File.")
