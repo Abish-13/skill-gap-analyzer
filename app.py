@@ -1,6 +1,6 @@
 import streamlit as st
 import numpy as np
-import pandas as pd
+import pdfplumber
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import re
@@ -10,15 +10,9 @@ import re
 # ==========================================
 st.set_page_config(page_title="CareerCraft AI", layout="wide", page_icon="🚀")
 
-# CSS to make progress bar change colors and look professional
 st.markdown("""
 <style>
-    .stProgress > div > div > div > div {
-        background-image: linear-gradient(to right, #4CAF50, #8BC34A);
-    }
-    .high-score { color: #4CAF50; font-weight: bold; }
-    .mid-score { color: #FF9800; font-weight: bold; }
-    .low-score { color: #F44336; font-weight: bold; }
+    .stProgress > div > div > div > div { background-image: linear-gradient(to right, #4CAF50, #8BC34A); }
     .project-card { border: 1px solid #ddd; padding: 15px; border-radius: 10px; margin-bottom: 10px; background-color: #f9f9f9;}
 </style>
 """, unsafe_allow_html=True)
@@ -26,165 +20,144 @@ st.markdown("""
 # ==========================================
 # BACKEND LOGIC (The ML Engine)
 # ==========================================
+def extract_pdf_text(uploaded_file):
+    text = ""
+    with pdfplumber.open(uploaded_file) as pdf:
+        for page in pdf.pages:
+            text += page.extract_text() or ""
+    return text
+
 def calculate_match(resume_text, jd_text):
-    """Deterministic TF-IDF & Cosine Similarity Engine"""
-    if not resume_text or not jd_text:
-        return 0, []
-    
-    # Pre-processing & Vectorization
+    if not resume_text or not jd_text: return 0, []
     tfidf = TfidfVectorizer(stop_words='english')
     matrix = tfidf.fit_transform([resume_text, jd_text])
-    
-    # Calculate geometric angle (Cosine Similarity)
-    match_score = int(cosine_similarity(matrix[0:1], matrix[1:2])[0][0] * 100)
-    
-    # Simple Gap Finder
+    score = int(cosine_similarity(matrix[0:1], matrix[1:2])[0][0] * 100)
     jd_words = set(re.findall(r'\b\w+\b', jd_text.lower()))
     res_words = set(re.findall(r'\b\w+\b', resume_text.lower()))
-    missing_skills = list(jd_words - res_words)
-    
-    return match_score, missing_skills[:5] # Return top 5 gaps
+    return score, list(jd_words - res_words)[:5]
 
-def magic_rewrite(skill):
-    """Dynamic Action-Result Rewrite logic"""
-    rewrites = {
-        "react": "Architected a responsive UI using React, improving user retention metrics by 15% through optimized load times.",
-        "python": "Engineered automated data pipelines in Python, reducing manual processing time by 30%.",
-        "sql": "Optimized complex SQL queries to handle 1M+ rows, resulting in 2x faster database response times.",
-        "aws": "Deployed scalable cloud infrastructure on AWS, ensuring 99.9% uptime for high-traffic applications.",
-        "docker": "Containerized microservices using Docker, standardizing the CI/CD pipeline and reducing deployment failures."
-    }
-    return rewrites.get(skill.lower(), f"Leveraged {skill} to solve complex technical challenges and deliver production-grade code.")
+def generate_cover_letter(role, gaps):
+    gap_text = f"specifically in areas like {', '.join(gaps[:2])}," if gaps else ""
+    return f"""Dear Hiring Manager,
+    
+I am writing to express my strong interest in the {role} position. As a proactive engineer, I have a passion for building scalable solutions.
+
+Recognizing the evolving needs of the industry, {gap_text} I have independently developed high-impact projects, such as a full-stack dashboard, to ensure my skills align perfectly with your production needs. 
+
+I am eager to bring my problem-solving mindset and technical adaptability to your team. Thank you for your time.
+
+Sincerely, 
+[Your Name]"""
 
 def analyze_student_answer(answer, target_skill):
-    """Real-time linguistic checking for anti-cheating"""
-    impact_words = ["optimized", "architected", "integrated", "solved", "built", "developed", "reduced", "improved"]
-    word_count = len(answer.split())
-    
-    if word_count < 15:
-        return "❌ **Too short!** Recruiters want implementation details. Mention a specific challenge you faced.", "low"
-    
-    impact_score = sum(1 for word in impact_words if word in answer.lower())
-    skill_mentioned = target_skill.lower() in answer.lower()
-    
-    if impact_score >= 2 and skill_mentioned:
-        return "✅ **Great!** You used high-impact action verbs. You sound like a real engineer.", "high"
-    elif skill_mentioned:
-        return f"⚠️ **Okay.** You mentioned {target_skill}, but try to use verbs like 'Optimized' or 'Architected' to show impact.", "mid"
-    else:
-        return f"❌ **Missed the mark.** You didn't even mention the core skill ({target_skill})! Try again.", "low"
+    impact_words = ["optimized", "architected", "integrated", "solved", "built"]
+    if len(answer.split()) < 15: return "❌ Too short! Mention a specific challenge.", "low"
+    if any(word in answer.lower() for word in impact_words) and target_skill.lower() in answer.lower():
+        return "✅ Great! High-impact action verbs detected. You sound like a real engineer.", "high"
+    return f"⚠️ You mentioned {target_skill}, but use verbs like 'Optimized' to show impact.", "mid"
 
+# ==========================================
+# PRESET JOB DATA
+# ==========================================
+PRESET_ROLES = {
+    "Software Engineer (SDE I)": "Looking for a software engineer with strong data structures, algorithms, Java, Python, SQL, and Git experience. Must know REST APIs.",
+    "Data Scientist": "Seeking a data scientist proficient in Python, Pandas, Scikit-Learn, SQL, and Data Visualization. Experience with ML models preferred.",
+    "Frontend Developer": "Frontend role requiring React.js, Next.js, Tailwind CSS, JavaScript, HTML5, and responsive UI design skills.",
+    "Backend Architect": "Backend role requiring Node.js, Express, MongoDB, Docker, AWS, and Microservices architecture experience."
+}
 
 # ==========================================
 # UI FRONTEND
 # ==========================================
-st.title("🚀 CareerCraft AI: From Resume to Job Ready")
+st.title("🚀 CareerCraft AI: Diamond Tier")
 st.write("The Build-to-Hire Loop for the Modern Engineer")
 
-# --- SIDEBAR: JOB DESCRIPTION & FALLBACK ---
-st.sidebar.header("🎯 Target Role (Input)")
-jd_input = st.sidebar.text_area("Paste Job Description here:", height=200, placeholder="E.g., Looking for a React developer with Docker experience...")
+# --- SIDEBAR: TARGET JOB INPUT ---
+st.sidebar.header("🎯 Step 1: Set Target Job")
+job_input_method = st.sidebar.radio("How do you want to set the job?", ["Select Preset Role", "Paste Job Description"])
 
-# --- MAIN DASHBOARD TABS ---
-tab1, tab2, tab3 = st.tabs(["🎓 Student View (Analyze & Build)", "🤖 Interview Grill", "👔 Recruiter View"])
+if job_input_method == "Select Preset Role":
+    selected_role = st.sidebar.selectbox("Choose a Role:", list(PRESET_ROLES.keys()))
+    jd_text = PRESET_ROLES[selected_role]
+    role_title = selected_role
+else:
+    jd_text = st.sidebar.text_area("Paste JD Here:", height=200)
+    role_title = "Custom Job Role"
 
-# ------------------------------------------
-# TAB 1: STUDENT VIEW (The Fixes are Here)
-# ------------------------------------------
-with tab1:
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.subheader("📄 Your Resume")
-        # Fallback Paste Method implemented
-        resume_input = st.text_area("Paste Resume Text (Fallback for slow networks):", height=200)
+# --- MAIN AREA: RESUME INPUT ---
+st.subheader("📄 Step 2: Input Your Resume")
+resume_input_method = st.radio("Choose Input Method (Paste handles slow networks):", ["Upload PDF", "Paste Text"])
+
+resume_text = ""
+if resume_input_method == "Upload PDF":
+    uploaded_file = st.file_uploader("Upload your resume (PDF)", type=["pdf"])
+    if uploaded_file: resume_text = extract_pdf_text(uploaded_file)
+else:
+    resume_text = st.text_area("Paste Resume Text Here:", height=150)
+
+# RUN ANALYSIS
+if st.button("🔍 Run AI Gap Analysis") and resume_text and jd_text:
+    score, gaps = calculate_match(resume_text, jd_text)
+    st.session_state['score'] = score
+    st.session_state['gaps'] = gaps
+    st.session_state['role'] = role_title
+    st.session_state['resume'] = resume_text
+
+st.markdown("---")
+
+# --- TABS: THE FULL ECOSYSTEM ---
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Analysis & Blueprints", "✍️ Docs & Cover Letter", "🎤 Interview Grill", "👔 Recruiter View"])
+
+if 'score' in st.session_state:
+    score = st.session_state['score']
+    gaps = st.session_state['gaps']
+    target_skill = gaps[0] if gaps else "React"
+
+    # --- TAB 1: ANALYSIS & PROJECTS ---
+    with tab1:
+        st.subheader(f"✅ Match Score: {score}%")
+        st.progress(score / 100.0)
         
-        analyze_btn = st.button("🔍 Analyze Skill Gap")
+        st.markdown("### 🛠️ Recommended Micro-Project")
+        st.markdown(f"""
+        <div class='project-card'>
+            <h4>Missing Skill: {target_skill.capitalize()}</h4>
+            <p><b>Blueprint:</b> Build an industry-standard project to prove your competency in {target_skill}.</p>
+            <p style='color: #4CAF50; font-weight: bold;'>💰 Est. Salary Boost: +₹5 LPA</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    if analyze_btn and resume_input and jd_input:
-        score, gaps = calculate_match(resume_input, jd_input)
-        st.session_state['score'] = score
-        st.session_state['gaps'] = gaps
-    
-    with col2:
-        if 'score' in st.session_state:
-            score = st.session_state['score']
-            gaps = st.session_state['gaps']
-            
-            # 1. FIXED PROGRESS BAR (Now Dynamic)
-            st.subheader(f"📊 Match Score: {score}%")
-            st.progress(score / 100.0)
-            
-            # Relatable Feedback based on score
-            if score < 40:
-                st.error("Ouch! You're speaking 'Student'. Let's help you speak 'Engineer'.")
-            elif score < 75:
-                st.warning("Good start, but you need more technical depth to beat the ATS.")
-            else:
-                st.success("Looking sharp! You're almost in the interview room.")
-
-            st.markdown("---")
-            st.subheader("🛠️ Micro-Project Blueprints")
-            
-            # 2. THE LPA HOOK & PROJECT GENERATOR
-            target_skill = gaps[0] if gaps else "react" # Default to react if no gaps
-            st.session_state['target_skill'] = target_skill # Save for interview tab
-            
-            st.markdown(f"""
-            <div class='project-card'>
-                <h4>Missing Skill: {target_skill.capitalize()}</h4>
-                <p><b>Blueprint:</b> Build a fully responsive Kanban Board (Trello Clone) with drag-and-drop.</p>
-                <p style='color: #4CAF50; font-weight: bold;'>💰 Estimated Market Value Boost: +₹4.5 LPA</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # 3. FIXED MAGIC REWRITE
-            with st.expander("✨ Peek at Magic Rewrite (For your Resume)"):
-                improved_text = magic_rewrite(target_skill)
-                st.code(improved_text, language='markdown')
-
-# ------------------------------------------
-# TAB 2: INTERVIEW GRILL (Anti-Cheating Fix)
-# ------------------------------------------
-with tab2:
-    st.header("🎤 The Interview Grill")
-    current_skill = st.session_state.get('target_skill', 'React').capitalize()
-    
-    st.info(f"**Verification Question:** Explain how you would optimize the state management in a large-scale {current_skill} application.")
-    
-    user_answer = st.text_area("Type your technical answer here:", height=150)
-    
-    if st.button("🧠 Verify My Answer"):
-        if user_answer:
-            # 4. FIXED ANALYZER (No longer static)
-            feedback, status = analyze_student_answer(user_answer, current_skill)
-            if status == "high":
-                st.success(feedback)
-            elif status == "mid":
-                st.warning(feedback)
-            else:
-                st.error(feedback)
-        else:
-            st.warning("Please type an answer first.")
-
-# ------------------------------------------
-# TAB 3: RECRUITER VIEW
-# ------------------------------------------
-with tab3:
-    st.header("👔 Hiring Manager Dashboard")
-    
-    if 'score' in st.session_state:
-        st.subheader("Candidate Risk Assessment")
+    # --- TAB 2: RESUME DRAFT & COVER LETTER (RESTORED) ---
+    with tab2:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("✉️ Auto-Generated Cover Letter")
+            cover_letter = generate_cover_letter(st.session_state['role'], gaps)
+            st.text_area("Copy your Cover Letter:", value=cover_letter, height=300)
         
+        with col2:
+            st.subheader("✨ Magic Resume Rewrite")
+            st.write(f"Based on your gap ({target_skill}), add this bullet point to your resume after building the project:")
+            st.code(f"Architected a scalable solution using {target_skill.capitalize()}, improving system efficiency by 15%.", language="markdown")
+
+    # --- TAB 3: INTERVIEW GRILL ---
+    with tab3:
+        st.subheader("🎤 Technical Defense")
+        st.info(f"**Q:** How did you implement {target_skill} in your recent project?")
+        user_ans = st.text_area("Type your answer:")
+        if st.button("Verify Answer"):
+            feedback, status = analyze_student_answer(user_ans, target_skill)
+            if status == "high": st.success(feedback)
+            else: st.warning(feedback)
+
+    # --- TAB 4: RECRUITER VIEW ---
+    with tab4:
+        st.subheader("👔 Hiring Manager Dashboard")
         col_r1, col_r2 = st.columns(2)
         with col_r1:
-            st.metric("Technical Score", f"{st.session_state['score']}%")
-            st.metric("Persona Match", "Backend Developer")
-        
+            st.metric("Technical Match", f"{score}%")
+            st.metric("Candidate Persona", "Growth-Oriented Builder")
         with col_r2:
-            st.markdown("### 🎣 Trap Questions for Interview")
-            current_skill = st.session_state.get('target_skill', 'React').capitalize()
-            st.write(f"1. Ask them to whiteboard the data flow in their {current_skill} project.")
-            st.write("2. Ask: 'What was the hardest bug you fixed and how?' (Tests implementation reality).")
-    else:
-        st.info("Run an analysis in the Student View to generate Recruiter insights.")
+            st.markdown("### 🎣 Trap Questions")
+            st.write(f"1. Ask them to whiteboard the data flow using {target_skill}.")
+            st.write("2. 'What was the hardest bug you faced and how did you debug it?'")
