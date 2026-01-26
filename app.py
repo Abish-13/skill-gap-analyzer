@@ -53,6 +53,8 @@ st.markdown("""
     .feedback-box-weak { border-left: 5px solid #ef4444; background: #fef2f2; padding: 15px; border-radius: 5px; }
     .feedback-box-strong { border-left: 5px solid #22c55e; background: #f0fdf4; padding: 15px; border-radius: 5px; }
     .streamlit-expanderContent div { word-wrap: break-word; white-space: normal; line-height: 1.6; }
+    /* Dynamic Progress Bar CSS */
+    .stProgress > div > div > div > div { background-image: linear-gradient(to right, #4CAF50, #8BC34A); }
     </style>
     """, unsafe_allow_html=True)
 
@@ -108,6 +110,15 @@ RESUME_BULLETS = {
     "python": "Developed a financial data pipeline using Python (Pandas), automating real-time crypto analysis.",
     "aws": "Deployed a serverless architecture on AWS Lambda, optimizing API Gateway triggers for <100ms latency.",
     "docker": "Optimized container orchestration using multi-stage Dockerfiles, reducing production image size by 40%."
+}
+
+# --- DYNAMIC REWRITE DATABASE (FIX 3) ---
+MAGIC_REWRITES = {
+    "react": "Architected a responsive UI using React, improving user retention metrics by 15% through optimized load times.",
+    "python": "Engineered automated data pipelines in Python, reducing manual processing time by 30%.",
+    "sql": "Optimized complex SQL queries to handle 1M+ rows, resulting in 2x faster database response times.",
+    "aws": "Deployed scalable cloud infrastructure on AWS, ensuring 99.9% uptime for high-traffic applications.",
+    "docker": "Containerized microservices using Docker, standardizing the CI/CD pipeline and reducing deployment failures."
 }
 
 # ---------------- 3. LOGIC ENGINES ----------------
@@ -175,27 +186,23 @@ def get_candidate_archetype(r_skills):
     elif fe_count > 0 and be_count > 0: return "🦄 Full Stack Developer"
     else: return "🌱 Generalist / Fresher"
 
-def analyze_answer(answer):
-    score = 0
-    feedback = []
-    weak_words = ["maybe", "think", "probably", "sort of", "just"]
-    strong_words = ["architected", "designed", "implemented", "optimized", "reduced", "increased", "led", "built"]
+# --- FIXED DYNAMIC ANALYZER (FIX 2) ---
+def analyze_answer(answer, target_skill):
+    impact_words = ["optimized", "architected", "integrated", "solved", "built", "reduced", "improved"]
+    word_count = len(answer.split())
     
-    if len(answer) < 20:
-        return "⚠️ Weak Answer", "Too short. Use the STAR method (Situation, Task, Action, Result).", "weak"
+    if word_count < 15:
+        return "⚠️ Weak Answer", "Too short! Use the STAR method to describe a specific challenge.", "weak"
     
-    for w in weak_words:
-        if w in answer.lower():
-            score -= 10
-            feedback.append(f"Avoid uncertain words like '{w}'. Be confident.")
-    for w in strong_words:
-        if w in answer.lower():
-            score += 20
+    impact_score = sum(1 for word in impact_words if word in answer.lower())
+    skill_mentioned = target_skill.lower() in answer.lower()
     
-    if score > 10:
-        return "✅ Strong Answer", "Great use of action verbs! Make sure to quantify your results.", "strong"
+    if impact_score >= 1 and skill_mentioned:
+        return "✅ Strong Answer", "Great use of high-impact action verbs! You sound like a real engineer.", "strong"
+    elif skill_mentioned:
+        return "⚠️ Needs Improvement", f"You mentioned {target_skill}, but try to use action verbs like 'Optimized' or 'Architected' to show impact.", "weak"
     else:
-        return "⚠️ Needs Improvement", f"Your answer is passive. {feedback[0] if feedback else 'Focus on the impact of your actions.'}", "weak"
+        return "🛑 Critical Flaw", f"You missed the mark. You didn't even mention the core skill ({target_skill})! Try again.", "weak"
 
 def generate_cheat_sheet(name, role, skills, bullets):
     buffer = io.BytesIO()
@@ -261,13 +268,13 @@ def main():
     if 'analyzed' not in st.session_state:
         st.session_state['analyzed'] = False
         st.session_state['completed_projects'] = set()
-        st.session_state['readiness_score'] = 25 
+        st.session_state['readiness_score'] = 0 # Fixed: No longer starts at 25
         
     # --- SIDEBAR (MOBILE FRIENDLY) ---
     with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=50)
         st.title("CareerCraft AI")
-        st.caption("Recruiter Edition v13.0")
+        st.caption("Recruiter Edition v14.0 (Diamond)")
         
         st.markdown("### 1. Resume Input")
         upload_mode = st.radio("Input Method", ["Upload File", "Paste Text"], horizontal=True, label_visibility="collapsed")
@@ -313,11 +320,16 @@ def main():
                 time.sleep(0.3)
                 my_bar.progress(90, text="📊 Generating Gap Analysis...")
 
+                # Recalculate everything upfront to FIX Progress Bar
+                r_skills = extract_skills(resume_text_content)
+                j_skills = extract_skills(jd_text.lower())
+                final_score, k_s, c_s = calculate_metrics(resume_text_content, jd_text, r_skills, j_skills)
+
                 st.session_state['analyzed'] = True
                 st.session_state['resume_text'] = resume_text_content
                 st.session_state['jd_text'] = jd_text
                 st.session_state['role_title'] = role_title
-                st.session_state['readiness_score'] = 25
+                st.session_state['readiness_score'] = final_score # FIX: Set to REAL final score
                 st.session_state['completed_projects'] = set()
                 
                 my_bar.progress(100, text="✅ Analysis Complete!")
@@ -346,7 +358,8 @@ def main():
         
         col_bar, col_export = st.columns([3, 1])
         with col_bar:
-            st.caption("🎓 Interview Readiness Level")
+            st.caption("🎓 Interview Readiness Level (Based on Match Score)")
+            # FIX 1: Dynamic Progress Bar based on actual score
             st.progress(st.session_state['readiness_score'] / 100)
             st.markdown(f"**Level: {st.session_state['readiness_score']}%** (Build projects to level up!)")
         with col_export:
@@ -369,8 +382,11 @@ def main():
         with c3:
             st.metric("Context Score", f"{c_score}%")
             with st.expander("✨ Peek at Magic Rewrite"):
-                st.info(f"**Instead of:** 'Used {list(matched)[0] if matched else 'Java'}'")
-                st.success(f"**Write this:** 'Leveraged **{list(matched)[0] if matched else 'Java'}** to architect scalable solutions, improving system latency by 30%.'")
+                # FIX 3: Dynamic Rewrite logic
+                target_skill = list(matched)[0] if matched else "python"
+                custom_rewrite = MAGIC_REWRITES.get(target_skill, f"Leveraged {target_skill.title()} to architect scalable solutions, improving system latency by 30%.")
+                st.info(f"**Instead of:** 'Used {target_skill.title()}'")
+                st.success(f"**Write this:** '{custom_rewrite}'")
 
         # --- SOFT SKILLS & LINKEDIN ---
         st.markdown("---")
@@ -433,7 +449,7 @@ def main():
 
         st.markdown("---")
 
-        # TABBED SECTIONS
+        # TABBED SECTIONS (Diamond Tier Tabs Maintained)
         st.subheader("🚀 Career Assets")
         tab1, tab2, tab3, tab4 = st.tabs(["🔥 Hot Seat", "📄 Cover Letter", "⚖️ Recruiter View", "📝 Full Resume Draft"])
 
@@ -441,25 +457,32 @@ def main():
         with tab1:
             st.caption("Questions appear here as you unlock skills.")
             active_question = None
+            active_skill = None # Track skill for Answer Analyzer
+            
             if matched:
                 st.markdown("### 🎯 Questions based on your CURRENT skills:")
                 for s in list(matched)[:5]: # Show top 5 matched skill questions
                      q = INTERVIEW_Q.get(s, f"Tell me about your experience with {s}.")
                      st.info(f"**{s.title()}:** {q}")
                      active_question = q
+                     active_skill = s
+                     
             if st.session_state['completed_projects']:
                 st.markdown("### 🔓 UNLOCKED Questions (New Skills):")
                 for s in st.session_state['completed_projects']:
                     q = INTERVIEW_Q.get(s, f"How did you implement {s}?")
                     st.success(f"**{s.title()} (Unlocked):** {q}")
                     active_question = q 
-            if active_question:
+                    active_skill = s
+                    
+            if active_question and active_skill:
                 st.markdown("---")
                 st.markdown("🎙️ **Practice Your Answer:**")
                 user_ans = st.text_area("Type your answer here to get AI feedback...", height=100)
                 if st.button("Analyze My Answer"):
                     if user_ans:
-                        verdict, text, style = analyze_answer(user_ans)
+                        # FIX 2: Pass the specific skill to the analyzer
+                        verdict, text, style = analyze_answer(user_ans, active_skill)
                         st.markdown(f"<div class='feedback-box-{style}'><b>{verdict}</b><br>{text}</div>", unsafe_allow_html=True)
                     else:
                         st.warning("Please type an answer first.")
