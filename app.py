@@ -82,14 +82,18 @@ PROJECT_BLUEPRINTS = {
     "java": {"title": "Multithreaded Chat Server", "task": "Build a basic real-time chat room using Java Sockets and Multithreading.", "salary": "₹5 LPA"}
 }
 
+# --- UPGRADED: ADVANCED INTERVIEW QUESTIONS ---
 INTERVIEW_Q = {
-    "react": "Recruiter: How did you optimize rendering to prevent lag when dragging items? Did you use `React.memo`?",
-    "next.js": "Recruiter: Explain the trade-off between **SSR** and **ISR** in your blog.",
-    "python": "Recruiter: How would you handle a sudden API rate limit error without crashing the script?",
-    "sql": "Recruiter: When would you intentionally denormalize your 3NF database for read performance?",
-    "aws": "Recruiter: How did you manage **Cold Starts** in your Lambda function?",
-    "docker": "Recruiter: You reduced image size by 40%. Did you use **Alpine Linux**? What are the security trade-offs?",
-    "java": "Recruiter: How did you handle thread synchronization to prevent race conditions in your chat server?"
+    "javascript": "Recruiter: Explain a scenario where you had to fix a memory leak in a Single Page Application using JavaScript. How did you use the DevTools heap snapshot?",
+    "css": "Recruiter: CSS Grid vs Flexbox. Walk me through a complex layout problem you solved where one was superior to the other. Did you consider browser reflow?",
+    "html": "Recruiter: In a recent project, how did you ensure your HTML was fully accessible (WCAG compliant)? Which ARIA attributes did you implement and why?",
+    "jest": "Recruiter: Testing async code can be tricky. How did you mock an API response in Jest to test a failure state (like a 500 Server Error)?",
+    "react": "Recruiter: Tell me about a time you optimized a React app's performance. Did you use useMemo/useCallback, and how did you measure the render time reduction?",
+    "python": "Recruiter: How did you handle Global Interpreter Lock (GIL) limitations when building multithreaded Python applications?",
+    "sql": "Recruiter: Describe a situation where a complex SQL JOIN caused a bottleneck. How did you refactor the query or use indexing to optimize the execution plan?",
+    "aws": "Recruiter: What was the hardest infrastructure bug you faced on AWS? How did you use CloudWatch to debug the latency issue?",
+    "docker": "Recruiter: Tell me about a time your Docker container failed in production but worked locally. How did you debug the environment discrepancy?",
+    "java": "Recruiter: Explain how you managed JVM memory tuning in your last large-scale Java application."
 }
 
 RESUME_BULLETS = {
@@ -168,50 +172,53 @@ def get_candidate_archetype(r_skills):
 # --- FIXED: CONTEXTUAL MAGIC REWRITE (Reads the actual resume) ---
 def generate_contextual_rewrite(resume_text, skill):
     """Finds the actual sentence in the resume containing the skill and rewrites IT, not a template."""
-    # Split resume into potential sentences/bullet points
     sentences = re.split(r'[.!?\n]', resume_text)
     original_context = ""
     
-    # Search for the specific line where the user mentioned this skill
     for s in sentences:
         if skill.lower() in s.lower() and len(s.split()) > 3:
             original_context = s.strip()
-            # Clean up the string a bit
             original_context = re.sub(r'^[^\w]+', '', original_context) 
             break
             
-    # If the user just listed the skill without context, provide a specific metric
     if not original_context:
         original_context = f"Used {skill.title()} in my projects."
 
-    # Dynamic metrics based on skill type so it never looks the same
     if skill.lower() in ["react", "html", "css", "figma", "next.js", "vue"]:
         verb = random.choice(["Architected", "Redesigned", "Developed"])
         metric = random.choice(["improving user retention by 20%", "reducing page load time by 1.5s", "increasing conversion rates by 15%"])
     elif skill.lower() in ["python", "sql", "pandas", "mongodb", "mysql"]:
         verb = random.choice(["Optimized", "Engineered", "Automated"])
         metric = random.choice(["processing 100k+ rows of data daily", "reducing query execution time by 40%", "saving 15 hours of manual work weekly"])
-    else: # Backend/DevOps
+    else: 
         verb = random.choice(["Deployed", "Orchestrated", "Implemented"])
         metric = random.choice(["ensuring 99.9% system uptime", "reducing server costs by 25%", "handling 500+ concurrent API requests"])
 
     rewrite = f"{verb} robust solutions using {skill.title()}, {metric}."
     return original_context, rewrite
 
+# --- UPGRADED: SMARTER ANSWER ANALYZER ---
 def analyze_answer(answer, target_skill):
-    impact_words = ["optimized", "architected", "integrated", "solved", "built", "reduced", "improved"]
-    if len(answer.split()) < 15:
-        return "⚠️ Weak Answer", "Too short! Use the STAR method to describe a specific challenge.", "weak"
+    """Deep analysis of interview answers looking for technical depth and the STAR method."""
+    impact_words = ["optimized", "architected", "integrated", "solved", "built", "reduced", "improved", "implemented", "debugged", "refactored"]
+    words = answer.split()
+    
+    # 1. Check Length
+    if len(words) < 12:
+        return "⚠️ Incomplete Answer", "Engineers use data. Expand your answer using the STAR method (Situation, Task, Action, Result) with specific metrics.", "weak"
     
     impact_score = sum(1 for word in impact_words if word in answer.lower())
     skill_mentioned = target_skill.lower() in answer.lower()
     
-    if impact_score >= 1 and skill_mentioned:
-        return "✅ Strong Answer", "Great use of high-impact action verbs! You sound like a real engineer.", "strong"
-    elif skill_mentioned:
-        return "⚠️ Needs Improvement", f"You mentioned {target_skill}, but try to use action verbs like 'Optimized' or 'Architected' to show impact.", "weak"
+    # 2. Check for Skill + Action
+    if impact_score >= 2 and skill_mentioned:
+        return "✅ Hireable Answer", "Excellent. You used high-impact verbs and addressed the core tech. This is exactly what Senior Engineers sound like.", "strong"
+    elif skill_mentioned and impact_score < 2:
+        return "⚠️ Needs Impact", f"You mentioned {target_skill}, but it sounds passive. Use action verbs like 'Architected' or 'Optimized' to show ownership.", "weak"
+    elif impact_score >= 1 and not skill_mentioned:
+        return "⚠️ Missed the Core Tech", f"Good action verbs, but you forgot to mention how you specifically used {target_skill}. Connect the tech to the result.", "weak"
     else:
-        return "🛑 Critical Flaw", f"You missed the mark. You didn't even mention the core skill ({target_skill})! Try again.", "weak"
+        return "🛑 Generic Answer", f"This is too vague. You must mention {target_skill} and the specific actions you took to solve the problem.", "weak"
 
 def generate_cheat_sheet(name, role, skills, bullets):
     buffer = io.BytesIO()
@@ -382,14 +389,12 @@ def main():
         with c3:
             st.metric("Context Score", f"{c_score}%")
             
-            # --- FIXED: TRUE RESUME-READING REWRITE ---
             with st.expander("✨ Peek at Magic Rewrites (Reads Your Resume)"):
                 st.caption("AI found these lines in your resume and upgraded them with the 'XYZ' impact formula.")
                 matched_list = list(matched)
                 if len(matched_list) > 0:
                     for i in range(min(3, len(matched_list))): 
                         skill = matched_list[i]
-                        # CALLING THE NEW INTELLIGENT FUNCTION
                         original_line, better_line = generate_contextual_rewrite(r_text, skill)
                         st.markdown(f"**Instead of:** *'{original_line}'*")
                         st.success(f"**Write this:** '{better_line}'")
@@ -472,18 +477,20 @@ def main():
             active_question = None
             active_skill = None 
             
+            # Show Questions for Current Skills
             if matched:
                 st.markdown("### 🎯 Questions based on your CURRENT skills:")
                 for s in list(matched)[:5]:
-                     q = INTERVIEW_Q.get(s, f"Tell me about your experience with {s}.")
+                     q = INTERVIEW_Q.get(s, f"Recruiter: Explain a complex architectural challenge you solved using {s.title()}.")
                      st.info(f"**{s.title()}:** {q}")
                      active_question = q
                      active_skill = s
                      
+            # Show Questions for Unlocked Skills
             if st.session_state['completed_projects']:
                 st.markdown("### 🔓 UNLOCKED Questions (New Skills):")
                 for s in st.session_state['completed_projects']:
-                    q = INTERVIEW_Q.get(s, f"How did you implement {s}?")
+                    q = INTERVIEW_Q.get(s, f"Recruiter: How did you implement {s.title()} and ensure the code was scalable?")
                     st.success(f"**{s.title()} (Unlocked):** {q}")
                     active_question = q 
                     active_skill = s
@@ -491,6 +498,7 @@ def main():
             if active_question and active_skill:
                 st.markdown("---")
                 st.markdown("🎙️ **Practice Your Answer:**")
+                st.caption("Use the STAR Method. Mention metrics, action verbs, and the specific technology.")
                 user_ans = st.text_area("Type your answer here to get AI feedback...", height=100)
                 if st.button("Analyze My Answer"):
                     if user_ans:
