@@ -20,39 +20,74 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Custom CSS (UI-only changes — logic unchanged)
 st.markdown("""
     <style>
-    .block-container { padding-top: 2rem; padding-bottom: 5rem; }
-    h1, h2, h3 { font-family: 'Inter', sans-serif; color: #0f172a; }
+    /* container + page width */
+    .block-container { padding-top: 1.5rem; padding-bottom: 3rem; max-width: 1180px; }
+
+    /* typography */
+    h1, h2, h3 { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; color: #0f172a; margin: 0.2rem 0; }
+    .muted { color: #6b7280; }
+
+    /* buttons */
     .stButton>button { 
-        border-radius: 8px; font-weight: 600; border: none; 
-        padding: 0.6rem 1.2rem; transition: all 0.2s ease;
-        background-color: #3b82f6; color: white;
+        border-radius: 10px; font-weight: 700; border: none; 
+        padding: 0.6rem 1.1rem; transition: all 0.18s ease;
+        background: linear-gradient(135deg,#2563eb,#3b82f6); color: white;
+        box-shadow: 0 6px 18px rgba(37,99,235,0.12);
+        font-size: 14px;
     }
-    .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
+    .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(37,99,235,0.18); }
+
+    /* hero card */
+    .hero-card {
+        background: linear-gradient(180deg, #ffffff, #fbfdff);
+        border-radius: 12px;
+        padding: 18px;
+        box-shadow: 0 8px 30px rgba(15, 23, 42, 0.04);
+        margin-bottom: 18px;
+    }
+
+    /* metric + project cards */
+    .metric-card { background:#fff; padding:14px; border-radius:10px; box-shadow:0 6px 20px rgba(2,6,23,0.04); }
     .project-card { 
-        background-color: #f8fafc; padding: 20px; border-radius: 12px; 
-        margin-bottom: 15px; border-left: 5px solid #3b82f6; 
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        background-color: #ffffff; padding: 16px; border-radius: 10px; 
+        margin-bottom: 12px; border-left: 5px solid #2563eb; 
+        box-shadow: 0 6px 18px rgba(2,6,23,0.04);
     }
+
+    /* small badges */
     .salary-badge {
-        background-color: #dcfce7; color: #166534; padding: 2px 6px; 
-        border-radius: 4px; font-size: 0.8em; font-weight: bold; border: 1px solid #166534; margin-left: 5px;
+        background-color: #dcfce7; color: #166534; padding: 3px 8px; 
+        border-radius: 999px; font-size: 0.8em; font-weight: 700; border: 1px solid #b7f3c3;
     }
     .missing-tag {
-        background-color: #fee2e2; color: #991b1b; padding: 4px 10px; 
-        border-radius: 6px; font-size: 0.9em; font-weight: 600; 
+        background-color: #fff5f5; color: #b91c1c; padding: 6px 10px; 
+        border-radius: 999px; font-size: 0.85em; font-weight: 700; 
         margin-right: 8px; display: inline-block; margin-bottom: 8px;
         border: 1px solid #fecaca;
     }
-    .ats-badge-green { background-color: #dcfce7; color: #15803d; padding: 5px 10px; border-radius: 5px; font-weight: bold; border: 1px solid #15803d; }
-    .ats-badge-red { background-color: #fee2e2; color: #b91c1c; padding: 5px 10px; border-radius: 5px; font-weight: bold; border: 1px solid #b91c1c; }
-    .ats-badge-yellow { background-color: #fef9c3; color: #a16207; padding: 5px 10px; border-radius: 5px; font-weight: bold; border: 1px solid #a16207; }
-    
-    .feedback-box-weak { border-left: 5px solid #ef4444; background: #fef2f2; padding: 15px; border-radius: 5px; }
-    .feedback-box-strong { border-left: 5px solid #22c55e; background: #f0fdf4; padding: 15px; border-radius: 5px; }
-    .stProgress > div > div > div > div { background-image: linear-gradient(to right, #4CAF50, #8BC34A); }
+
+    /* ats badges */
+    .ats-badge-green { background-color: #ecfdf5; color: #065f46; padding: 6px 10px; border-radius: 6px; font-weight: 700; border: 1px solid #bbf7d0; display:inline-block; }
+    .ats-badge-red { background-color: #fff1f2; color: #991b1b; padding: 6px 10px; border-radius: 6px; font-weight: 700; border: 1px solid #fecaca; display:inline-block; }
+    .ats-badge-yellow { background-color: #fffbeb; color: #92400e; padding: 6px 10px; border-radius: 6px; font-weight: 700; border: 1px solid #fde68a; display:inline-block; }
+
+    /* feedback boxes */
+    .feedback-box-weak { border-left: 6px solid #ef4444; background: #fff5f5; padding: 14px; border-radius: 6px; }
+    .feedback-box-strong { border-left: 6px solid #16a34a; background: #f0fdf4; padding: 14px; border-radius: 6px; }
+
+    /* progress bar style */
+    .stProgress > div > div > div > div { background-image: linear-gradient(90deg,#34d399,#2563eb); border-radius: 6px; }
+
+    /* small helper text */
+    .small-muted { color:#6b7280; font-size:13px; margin-top:6px; }
+
+    /* responsive tweak for small screens */
+    @media (max-width: 640px) {
+        .hero-card { padding: 12px; }
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -288,11 +323,15 @@ def main():
         
     # --- START PAGE (Main UI Input) ---
     if not st.session_state['analyzed']:
+        # centered panel
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=60)
+            st.markdown("<div class='hero-card'>", unsafe_allow_html=True)
+            st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=56)
             st.title("CareerCraft AI")
             st.caption("Recruiter Edition v15.0 (Diamond Ultimate)")
+            st.markdown("<div class='small-muted'>Upload a resume (PDF/DOCX) or paste text, then paste a JD or select a preset role. We'll analyze match, missing skills, and give rewrite suggestions.</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
             st.markdown("---")
             
             st.markdown("### 1. Resume Input")
