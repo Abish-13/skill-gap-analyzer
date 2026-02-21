@@ -286,70 +286,79 @@ def main():
         st.session_state['completed_projects'] = set()
         st.session_state['readiness_score'] = 0 
         
-    # --- SIDEBAR (Dual Input & Preset Roles) ---
-    with st.sidebar:
-        st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=50)
-        st.title("CareerCraft AI")
-        st.caption("Recruiter Edition v15.0 (Diamond Ultimate)")
-        
-        st.markdown("### 1. Resume Input")
-        upload_mode = st.radio("Input Method", ["Upload File", "Paste Text"], horizontal=True, label_visibility="collapsed")
-        
-        resume_text_content = ""
-        uploaded_file = None
+    # --- START PAGE (Main UI Input) ---
+    if not st.session_state['analyzed']:
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=60)
+            st.title("CareerCraft AI")
+            st.caption("Recruiter Edition v15.0 (Diamond Ultimate)")
+            st.markdown("---")
+            
+            st.markdown("### 1. Resume Input")
+            upload_mode = st.radio("Input Method", ["Upload File", "Paste Text"], horizontal=True, label_visibility="collapsed")
+            
+            resume_text_content = ""
+            uploaded_file = None
 
-        if upload_mode == "Upload File":
-            uploaded_file = st.file_uploader("Upload Resume (PDF/DOCX)", type=["pdf", "docx"])
-            if uploaded_file: resume_text_content = extract_text(uploaded_file)
-        else:
-            resume_text_content = st.text_area("Paste Resume Text Here", height=200, placeholder="Copy-paste your full resume text here...")
-
-        st.markdown("### 2. Target Job")
-        target_mode = st.radio("Target Method", ["Paste JD (Recommended)", "Preset Role"], horizontal=True, label_visibility="collapsed")
-        jd_text = ""
-        role_title = "General"
-
-        if target_mode == "Paste JD (Recommended)":
-            role_title = st.text_input("Job Title", "Full Stack Engineer")
-            jd_text = st.text_area("Paste JD Here")
-        else:
-            role_title = st.selectbox("Select Role", ["Frontend Developer", "Backend Developer", "Data Scientist"])
-            presets = {
-                "Frontend Developer": "react javascript html css git figma redux typescript jest next.js",
-                "Backend Developer": "python java django spring boot sql api docker aws",
-                "Data Scientist": "python pandas sql machine learning statistics tensorflow"
-            }
-            jd_text = presets.get(role_title, "")
-
-        if st.button("🚀 Analyze My Fit"):
-            if resume_text_content and jd_text:
-                progress_text = "Initializing AI Agent..."
-                my_bar = st.progress(0, text=progress_text)
-                time.sleep(0.3)
-                my_bar.progress(30, text="📄 Parsing Resume & TF-IDF Vectorization...")
-                time.sleep(0.3)
-                my_bar.progress(70, text="🔍 Calculating Pure Cosine Similarity...")
-                
-                r_skills = extract_skills(resume_text_content)
-                j_skills = extract_skills(jd_text.lower())
-                final_score, k_s, c_s = calculate_metrics(resume_text_content, jd_text, r_skills, j_skills)
-
-                st.session_state['analyzed'] = True
-                st.session_state['resume_text'] = resume_text_content
-                st.session_state['jd_text'] = jd_text
-                st.session_state['role_title'] = role_title
-                st.session_state['readiness_score'] = final_score 
-                st.session_state['completed_projects'] = set()
-                
-                my_bar.progress(100, text="✅ Analysis Complete!")
-                time.sleep(0.5)
-                my_bar.empty()
-                st.rerun()
+            if upload_mode == "Upload File":
+                uploaded_file = st.file_uploader("Upload Resume (PDF/DOCX)", type=["pdf", "docx"])
+                if uploaded_file: resume_text_content = extract_text(uploaded_file)
             else:
-                st.toast("⚠️ Please provide Resume text and Job Description!", icon="🚨")
+                resume_text_content = st.text_area("Paste Resume Text Here", height=200, placeholder="Copy-paste your full resume text here...")
 
-    # --- MAIN DASHBOARD ---
-    if st.session_state['analyzed']:
+            st.markdown("### 2. Target Job")
+            target_mode = st.radio("Target Method", ["Paste JD (Recommended)", "Preset Role"], horizontal=True, label_visibility="collapsed")
+            jd_text = ""
+            role_title = "General"
+
+            if target_mode == "Paste JD (Recommended)":
+                role_title = st.text_input("Job Title", "Full Stack Engineer")
+                jd_text = st.text_area("Paste JD Here")
+            else:
+                role_title = st.selectbox("Select Role", ["Frontend Developer", "Backend Developer", "Data Scientist"])
+                presets = {
+                    "Frontend Developer": "react javascript html css git figma redux typescript jest next.js",
+                    "Backend Developer": "python java django spring boot sql api docker aws",
+                    "Data Scientist": "python pandas sql machine learning statistics tensorflow"
+                }
+                jd_text = presets.get(role_title, "")
+
+            if st.button("🚀 Analyze My Fit", use_container_width=True):
+                if resume_text_content and jd_text:
+                    progress_text = "Initializing AI Agent..."
+                    my_bar = st.progress(0, text=progress_text)
+                    time.sleep(0.3)
+                    my_bar.progress(30, text="📄 Parsing Resume & TF-IDF Vectorization...")
+                    time.sleep(0.3)
+                    my_bar.progress(70, text="🔍 Calculating Pure Cosine Similarity...")
+                    
+                    r_skills = extract_skills(resume_text_content)
+                    j_skills = extract_skills(jd_text.lower())
+                    final_score, k_s, c_s = calculate_metrics(resume_text_content, jd_text, r_skills, j_skills)
+
+                    st.session_state['analyzed'] = True
+                    st.session_state['resume_text'] = resume_text_content
+                    st.session_state['jd_text'] = jd_text
+                    st.session_state['role_title'] = role_title
+                    st.session_state['readiness_score'] = final_score 
+                    st.session_state['completed_projects'] = set()
+                    
+                    my_bar.progress(100, text="✅ Analysis Complete!")
+                    time.sleep(0.5)
+                    my_bar.empty()
+                    st.rerun()
+                else:
+                    st.toast("⚠️ Please provide Resume text and Job Description!", icon="🚨")
+
+    # --- MAIN DASHBOARD (Analysis Page) ---
+    else:
+        if st.button("⬅️ Analyze Another Resume"):
+            st.session_state['analyzed'] = False
+            st.session_state['completed_projects'] = set()
+            st.session_state['readiness_score'] = 0 
+            st.rerun()
+
         r_text = st.session_state['resume_text']
         j_text = st.session_state['jd_text']
         r_skills = extract_skills(r_text)
@@ -587,9 +596,6 @@ Results-oriented **{st.session_state['role_title']}** with a strong technical fo
                 resume_draft += f"**{s.title()} Implementation** | *Stack: {s.title()}*\n* Designed and developed a solution using **{s.title()}** to solve key business challenges.\n\n"
 
             st.text_area("Full Resume Text", resume_draft, height=600)
-
-    elif not st.session_state['analyzed']:
-        st.info("👈 Open Sidebar to Paste Resume or Upload File.")
 
 if __name__ == "__main__":
     main()
